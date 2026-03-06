@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tactical Command Simulator</title>
+    <style>
+        :root {
+            --win95-gray: #c0c0c0;
+            --win95-dark: #808080;
+            --win95-light: #ffffff;
+            --win95-blue: #000080;
+            --win95-red: #800000;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #008080;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .game-container {
+            width: 900px;
+            background-color: var(--win95-gray);
+            border: 3px solid;
+            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+            padding: 15px;
+            box-shadow: 10px 10px 20px rgba(0,0,0,0.3);
+        }
+        
+        .window-title {
+            background-color: var(--win95-blue);
+            color: white;
+            padding: 8px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: var(--win95-light);
+            border: 2px solid;
+            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+        }
+        
+        .status-panel {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            background-color: var(--win95-dark);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .game-area {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+        }
+        
+        .map-container {
+            background-color: #000;
+            border: 3px solid;
+            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+            padding: 10px;
+            position: relative;
+        }
+        
+        .map-canvas {
+            display: block;
+            width: 600px;
+            height: 450px;
+            image-rendering: pixelated;
+        }
+        
+        .command-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .panel-section {
+            background-color: var(--win95-light);
+            border: 3px solid;
+            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+            padding: 15px;
+            flex-grow: 1;
+        }
+        
+        .panel-title {
+            background-color: var(--win95-blue);
+            color: white;
+            padding: 4px 8px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        button {
+            background-color: var(--win95-light);
+            border: 3px solid;
+            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+            padding: 8px 16px;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: inset 2px 2px 0 rgba(0,0,0,0.3), 2px 2px 0 rgba(0,0,0,0.3);
+        }
+        
+        button:active {
+            border-color: var(--win95-light) var(--win95-dark) var(--win95-dark) var(--win95-light);
+            box-shadow: inset 2px 2px 0 rgba(0,0,0,0.3);
+            transform: translate(1px, 1px);
+        }
+        
+        button:hover {
+            background-color: #e8f0fe;
+        }
+        
+        .sonar-display {
+            height: 150px;
+            background-color: #000;
+            border: 2px solid var(--win95-dark);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sonar-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 2px;
+            padding: 10px;
+            height: 100%;
+        }
+        
+        .sonar-cell {
+            background-color: #003300;
+            border-radius: 2px;
+            transition: all 0.5s ease;
+        }
+        
+        .sonar-cell.detected {
+            background-color: #ff0000;
+            box-shadow: 0 0 10px rgba(255,0,0,0.8);
+        }
+        
+        .sonar-cell.player {
+            background-color: #00ff00;
+            box-shadow: 0 0 10px rgba(0,255,0,0.8);
+        }
+        
+        .log-panel {
+            height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background-color: #f0f0f0;
+            border: 2px solid var(--win95-dark);
+            padding: 8px;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+            padding-left: 8px;
+            border-left: 3px solid;
+        }
+        
+        .log-entry.info { border-color: #0066cc; color: #003366; }
+        .log-entry.warning { border-color: #ff9900; color: #996600; }
+        .log-entry.success { border-color: #00cc00; color: #006600; }
+        .log-entry.danger { border-color: #cc0000; color: #660000; }
+        
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--win95-light);
+            border: 2px solid var(--win95-dark);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: var(--win95-blue);
+            font-size: 16px;
+        }
+        
+        .key-hint {
+            background-color: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        /* Modal for game over */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: var(--win95-gray);
+            border: 3px solid;
+            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+            padding: 30px;
+            text-align: center;
+            width: 400px;
+        }
+        
+        .modal-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: var(--win95-blue);
+        }
+        
+        .modal-message {
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="window-title">Tactical Command Simulator v1.0</div>
+        
+        <div class="game-header">
+            <div class="status-panel">
+                <div class="status-item">
+                    <span class="status-icon">P</span>
+                    <span>Player Position: Sector <span id="player-pos">A-5</span></span>
+                </div>
+                <div class="status-item">
+                    <span class="status-icon">E</span>
+                    <span>Enemies Detected: <span id="enemy-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span class="status-icon">M</span>
+                    <span>Missiles Ready: <span id="missile-count">10</span></span>
+                </div>
+            </div>
+            <button onclick="resetGame()">Reset Mission</button>
+        </div>
+        
+        <div class="game-area">
+            <div class="map-container">
+                <canvas id="gameCanvas" width="600" height="450"></canvas>
+            </div>
+            
+            <div class="command-panel">
+                <div class="panel-section">
+                    <div class="panel-title">SONAR DISPLAY</div>
+                    <div class="sonar-display">
+                        <div class="sonar-grid" id="sonarGrid"></div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <div class="panel-title">COMMAND CENTER</div>
+                    <div class="controls">
+                        <button onclick="movePlayer(0, -1)">↑ Move North</button>
+                        <button onclick="movePlayer(0, 1)">↓ Move South</button>
+                        <button onclick="movePlayer(-1, 0)">← Move West</button>
+                        <button onclick="movePlayer(1, 0)">→ Move East</button>
+                        <button onclick="scanSector()">Scan Sector (Sonar)</button>
+                        <button onclick="launchMissile()" style="background-color: #ffcccc;">🚀 Launch Missile</button>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <div class="panel-title">MISSION LOG</div>
+                    <div class="log-panel" id="missionLog"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>MISSION BRIEFING</h3>
+            <p>Welcome, Commander! Your mission is to locate and neutralize enemy forces in this sector.</p>
+            
+            <p><strong>CONTROLS:</strong></p>
+            <ul style="margin-top: 10px; margin-bottom: 10px;">
+                <li>Use arrow buttons or <span class="key-hint">↑ ↓ ← →</span> to navigate the grid</li>
+                <li>Click <strong>Scan Sector</strong> to use sonar and detect enemies nearby</li>
+                <li>Launch missiles at detected enemy positions with <strong>🚀 Launch Missile</strong></li>
+            </ul>
+            
+            <p><strong>MISSION OBJECTIVE:</strong> Destroy all 8 enemy units to complete the mission!</p>
+        </div>
+    </div>
+    
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title" id="modalTitle">Mission Complete</div>
+            <div class="modal-message" id="modalMessage">All enemy forces have been neutralized.</div>
+            <div class="btn-group">
+                <button onclick="resetGame()">New Mission</button>
+                <button onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const GRID_ROWS = 10;
+        const GRID_COLS = 12;
+        const CELL_SIZE = 45;
+        const TOTAL_ENEMIES = 8;
+        
+        // Game State
+        let gameState = {
+            playerRow: 0,
+            playerCol: 0,
+            enemies: [],
+            missiles: 10,
+            detectedEnemies: [],
+            gameActive: true,
+            scanRadius: 2
+        };
+        
+        // Initialize Canvas
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Initialize Sonar Grid
+        const sonarGrid = document.getElementById('sonarGrid');
+        
+        // Mission Log Element
+        const missionLog = document.getElementById('missionLog');
+        
+        // Initialize Game
+        function initGame() {
+            gameState.playerRow = 4;
+            gameState.playerCol = 5;
+            gameState.missiles = 10;
+            gameState.gameActive = true;
+            gameState.detectedEnemies = [];
+            
+            // Generate random enemies (ensure not at player position)
+            gameState.enemies = [];
+            while (gameState.enemies.length < TOTAL_ENEMIES) {
+                const row = Math.floor(Math.random() * GRID_ROWS);
+                const col = Math.floor(Math.random() * GRID_COLS);
+                
+                if ((row !== gameState.playerRow || col !== gameState.playerCol) && 
+                    !gameState.enemies.some(e => e.row === row && e.col === col)) {
+                    gameState.enemies.push({ row, col, active: true });
+                }
+            }
+            
+            updateUI();
+            drawMap();
+            updateSonar();
+            logMessage("Mission started. Enemy forces detected in this sector.", "info");
+        }
+        
+        // Draw the Map
+        function drawMap() {
+            // Clear canvas
+            ctx.fillStyle = '#003366';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            
+            for (let row = 0; row <= GRID_ROWS; row++) {
+                ctx.beginPath();
+                ctx.moveTo(0, row * CELL_SIZE);
+                ctx.lineTo(canvas.width, row * CELL_SIZE);
+                ctx.stroke();
+            }
+            
+            for (let col = 0; col <= GRID_COLS; col++) {
+                ctx.beginPath();
+                ctx.moveTo(col * CELL_SIZE, 0);
+                ctx.lineTo(col * CELL_SIZE, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Draw player
+            const playerX = gameState.playerCol * CELL_SIZE + CELL_SIZE / 2;
+            const playerY = gameState.playerRow * CELL_SIZE + CELL_SIZE / 2;
+            
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(playerX, playerY, CELL_SIZE / 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw player "ship" indicator
+            ctx.strokeStyle = '#00cc00';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(
+                gameState.playerCol * CELL_SIZE + 10,
+                gameState.playerRow * CELL_SIZE + 10,
+                CELL_SIZE - 20,
+                CELL_SIZE - 20
+            );
+            
+            // Draw detected enemies (blue circles)
+            gameState.detectedEnemies.forEach(enemy => {
+                const enemyX = enemy.col * CELL_SIZE + CELL_SIZE / 2;
+                const enemyY = enemy.row * CELL_SIZE + CELL_SIZE / 2;
+                
+                ctx.fillStyle = '#0099ff';
+                ctx.beginPath();
+                ctx.arc(enemyX, enemyY, 8, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Draw active enemies (red triangles)
+            gameState.enemies.forEach(enemy => {
+                if (enemy.active) {
+                    const enemyX = enemy.col * CELL_SIZE + CELL_SIZE / 2;
+                    const enemyY = enemy.row * CELL_SIZE + CELL_SIZE / 2;
+                    
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.moveTo(enemyX, enemyY - 10);
+                    ctx.lineTo(enemyX + 10, enemyY + 8);
+                    ctx.lineTo(enemyX - 10, enemyY + 8);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            });
+            
+            // Draw missile trails
+            gameState.missileTrails = gameState.missileTrails || [];
+            gameState.missileTrails.forEach((trail, index) => {
+                ctx.strokeStyle = trail.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(trail.startX, trail.startY);
+                ctx.lineTo(trail.endX, trail.endY);
+                ctx.stroke();
+                
+                // Update trail animation
+                const progress = trail.progress + 0.1;
+                if (progress < 1) {
+                    trail.progress = progress;
+                    trail.currentX = trail.startX + (trail.endX - trail.startX) * progress;
+                    trail.currentY = trail.startY + (trail.endY - trail.startY) * progress;
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(trail.currentX, trail.currentY, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            // Clean up completed trails
+            gameState.missileTrails = gameState.missileTrails.filter(trail => trail.progress < 1);
+        }
+        
+        // Update Sonar Display
+        function updateSonar() {
+            sonarGrid.innerHTML = '';
+            
+            for (let i = 0; i < GRID_ROWS * GRID_COLS; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'sonar-cell';
+                
+                const row = Math.floor(i / GRID_COLS);
+                const col = i % GRID_COLS;
+                
+                // Check if this cell has a detected enemy
+                if (gameState.detectedEnemies.some(e => e.row === row && e.col === col)) {
+                    cell.classList.add('detected');
+                }
+                
+                // Highlight player position
+                if (row === gameState.playerRow && col === gameState.playerCol) {
+                    cell.classList.add('player');
+                }
+                
+                sonarGrid.appendChild(cell);
+            }
+        }
+        
+        // Update UI Elements
+        function updateUI() {
+            document.getElementById('player-pos').textContent = `${String.fromCharCode(65 + gameState.playerCol)}-${gameState.playerRow + 1}`;
+            document.getElementById('enemy-count').textContent = gameState.enemies.filter(e => e.active).length;
+            document.getElementById('missile-count').textContent = gameState.missiles;
+        }
+        
+        // Log Messages
+        function logMessage(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            missionLog.appendChild(entry);
+            missionLog.scrollTop = missionLog.scrollHeight;
+        }
+        
+        // Move Player
+        function movePlayer(deltaCol, deltaRow) {
+            if (!gameState.gameActive) return;
+            
+            const newRow = gameState.playerRow + deltaRow;
+            const newCol = gameState.playerCol + deltaCol;
+            
+            // Check boundaries
+            if (newRow >= 0 && newRow < GRID_ROWS && newCol >= 0 && newCol < GRID_COLS) {
+                gameState.playerRow = newRow;
+                gameState.playerCol = newCol;
+                
+                logMessage(`Moved to Sector ${String.fromCharCode(65 + newCol)}-${newRow + 1}`, 'info');
+                updateUI();
+                drawMap();
+            }
+        }
+        
+        // Scan Sector
+        function scanSector() {
+            if (!gameState.gameActive) return;
+            
+            const detected = [];
+            
+            // Check enemies within scan radius
+            gameState.enemies.forEach(enemy => {
+                if (enemy.active) {
+                    const distance = Math.abs(enemy.row - gameState.playerRow) + 
+                                   Math.abs(enemy.col - gameState.playerCol);
+                    
+                    if (distance <= gameState.scanRadius) {
+                        detected.push(enemy);
+                    }
+                }
+            });
+            
+            // Update detected enemies
+            detected.forEach(newEnemy => {
+                if (!gameState.detectedEnemies.some(e => e.row === newEnemy.row && e.col === newEnemy.col)) {
+                    gameState.detectedEnemies.push(newEnemy);
+                }
+            });
+            
+            logMessage(`Sonar scan complete. ${detected.length} signatures detected in this sector.`, 
+                      detected.length > 0 ? 'warning' : 'info');
+            
+            updateUI();
+            updateSonar();
+        }
+        
+        // Launch Missile
+        function launchMissile() {
+            if (!gameState.gameActive) return;
+            
+            if (gameState.missiles <= 0) {
+                logMessage("No missiles available! Reload required.", "danger");
+                return;
+            }
+            
+            if (gameState.detectedEnemies.length === 0) {
+                logMessage("No enemy targets detected. Scan sector first!", "warning");
+                return;
+            }
+            
+            // Select random target from detected enemies
+            const targetIndex = Math.floor(Math.random() * gameState.detectedEnemies.length);
+            const target = gameState.detectedEnemies[targetIndex];
+            
+            // Create missile trail animation
+            const startX = gameState.playerCol * CELL_SIZE + CELL_SIZE / 2;
+            const startY = gameState.playerRow * CELL_SIZE + CELL_SIZE / 2;
+            const endX = target.col * CELL_SIZE + CELL_SIZE / 2;
+            const endY = target.row * CELL_SIZE + CELL_SIZE / 2;
+            
+            gameState.missileTrails = gameState.missileTrails || [];
+            gameState.missileTrails.push({
+                startX, startY, endX, endY,
+                progress: 0,
+                color: `hsl(${Math.random() * 60 + 300}, 100%, 50%)` // Pink/purple range
+            });
+            
+            gameState.missiles--;
+            logMessage(`Missile launched at Sector ${String.fromCharCode(65 + target.col)}-${target.row + 1}!`, "success");
+            
+            updateUI();
+            
+            // Check if missile hits (simple implementation - always hit for fun)
+            setTimeout(() => {
+                // Remove enemy
+                gameState.enemies = gameState.enemies.map(enemy => {
+                    if (enemy.row === target.row && enemy.col === target.col && enemy.active) {
+                        enemy.active = false;
+                        return enemy;
+                    }
+                    return enemy;
+                });
+                
+                // Remove from detected enemies
+                gameState.detectedEnemies = gameState.detectedEnemies.filter(
+                    e => !(e.row === target.row && e.col === target.col)
+                );
+                
+                logMessage(`Target destroyed! Sector ${String.fromCharCode(65 + target.col)}-${target.row + 1} secured.`, "success");
+                updateUI();
+                drawMap();
+                updateSonar();
+                
+                // Check win condition
+                const remainingEnemies = gameState.enemies.filter(e => e.active).length;
+                if (remainingEnemies === 0) {
+                    endGame(true);
+                }
+            }, 800); // Animation delay
+        }
+        
+        // End Game
+        function endGame(victory) {
+            gameState.gameActive = false;
+            
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            
+            if (victory) {
+                title.textContent = "Mission Accomplished!";
+                title.style.color = "#00cc00";
+                message.textContent = `Excellent work, Commander! You've neutralized all ${TOTAL_ENEMIES} enemy units with ${gameState.missiles} missiles remaining.`;
+            } else {
+                title.textContent = "Mission Failed";
+                title.style.color = "#cc0000";
+                message.textContent = "Your forces have been compromised. Better luck next time, Commander.";
+            }
+            
+            modal.style.display = 'flex';
+        }
+        
+        // Reset Game
+        function resetGame() {
+            document.getElementById('missionLog').innerHTML = '';
+            initGame();
+            closeModal();
+        }
+        
+        // Close Modal
+        function closeModal() {
+            document.getElementById('gameOverModal').style.display = 'none';
+        }
+        
+        // Keyboard Controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameState.gameActive) return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                    movePlayer(1, 0);
+                    break;
+                case 's':
+                case 'S':
+                    scanSector();
+                    break;
+                case 'm':
+                case 'M':
+                    launchMissile();
+                    break;
+            }
+        });
+        
+        // Initialize on load
+        window.onload = function() {
+            initGame();
+            
+            // Add some initial log messages for atmosphere
+            setTimeout(() => {
+                logMessage("Systems online. Welcome to Tactical Command.", "info");
+                logMessage("Enemy activity reported in this sector. Proceed with caution.", "warning");
+            }, 500);
+        };
+    </script>
+</body>
+</html>
