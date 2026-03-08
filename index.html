@@ -2,734 +2,537 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tactical Command Simulator</title>
+    <title>Terminal Mk IV - Operation Vanguard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --win95-gray: #c0c0c0;
-            --win95-dark: #808080;
-            --win95-light: #ffffff;
-            --win95-blue: #000080;
-            --win95-red: #800000;
-        }
-        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #008080;
+            background-color: #020202;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
             margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            user-select: none;
         }
-        
-        .game-container {
-            width: 900px;
-            background-color: var(--win95-gray);
-            border: 3px solid;
-            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
-            padding: 15px;
-            box-shadow: 10px 10px 20px rgba(0,0,0,0.3);
-        }
-        
-        .window-title {
-            background-color: var(--win95-blue);
-            color: white;
-            padding: 8px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            text-align: center;
-            border-radius: 4px 4px 0 0;
-        }
-        
-        .game-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            background-color: var(--win95-light);
-            border: 2px solid;
-            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
-        }
-        
-        .status-panel {
-            display: flex;
-            gap: 20px;
-            font-size: 14px;
-        }
-        
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .status-icon {
-            width: 20px;
-            height: 20px;
-            background-color: var(--win95-dark);
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-        
-        .game-area {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 15px;
-        }
-        
-        .map-container {
-            background-color: #000;
-            border: 3px solid;
-            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
-            padding: 10px;
+
+        #chassis {
+            background-color: #1e201d;
+            width: 96vw;
+            height: 96vh;
+            padding: 40px;
+            border-radius: 20px;
+            box-sizing: border-box;
+            box-shadow: inset 0 0 20px #000, 0 0 50px rgba(0,0,0,1);
+            border: 8px solid #0a0b0a;
             position: relative;
-        }
-        
-        .map-canvas {
-            display: block;
-            width: 600px;
-            height: 450px;
-            image-rendering: pixelated;
-        }
-        
-        .command-panel {
             display: flex;
             flex-direction: column;
-            gap: 15px;
         }
-        
-        .panel-section {
-            background-color: var(--win95-light);
-            border: 3px solid;
-            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
-            padding: 15px;
-            flex-grow: 1;
+
+        .rivet {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #111;
+            border-radius: 50%;
+            box-shadow: inset 2px 2px 4px #333, inset -2px -2px 4px #000;
         }
-        
-        .panel-title {
-            background-color: var(--win95-blue);
-            color: white;
-            padding: 4px 8px;
-            margin-bottom: 10px;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-        
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        
-        button {
-            background-color: var(--win95-light);
-            border: 3px solid;
-            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
-            padding: 8px 16px;
-            font-family: inherit;
-            font-size: 14px;
-            cursor: pointer;
-            box-shadow: inset 2px 2px 0 rgba(0,0,0,0.3), 2px 2px 0 rgba(0,0,0,0.3);
-        }
-        
-        button:active {
-            border-color: var(--win95-light) var(--win95-dark) var(--win95-dark) var(--win95-light);
-            box-shadow: inset 2px 2px 0 rgba(0,0,0,0.3);
-            transform: translate(1px, 1px);
-        }
-        
-        button:hover {
-            background-color: #e8f0fe;
-        }
-        
-        .sonar-display {
-            height: 150px;
-            background-color: #000;
-            border: 2px solid var(--win95-dark);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .sonar-grid {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 2px;
-            padding: 10px;
-            height: 100%;
-        }
-        
-        .sonar-cell {
-            background-color: #003300;
-            border-radius: 2px;
-            transition: all 0.5s ease;
-        }
-        
-        .sonar-cell.detected {
-            background-color: #ff0000;
-            box-shadow: 0 0 10px rgba(255,0,0,0.8);
-        }
-        
-        .sonar-cell.player {
-            background-color: #00ff00;
-            box-shadow: 0 0 10px rgba(0,255,0,0.8);
-        }
-        
-        .log-panel {
-            height: 150px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            background-color: #f0f0f0;
-            border: 2px solid var(--win95-dark);
-            padding: 8px;
-        }
-        
-        .log-entry {
-            margin-bottom: 4px;
-            padding-left: 8px;
-            border-left: 3px solid;
-        }
-        
-        .log-entry.info { border-color: #0066cc; color: #003366; }
-        .log-entry.warning { border-color: #ff9900; color: #996600; }
-        .log-entry.success { border-color: #00cc00; color: #006600; }
-        .log-entry.danger { border-color: #cc0000; color: #660000; }
-        
-        .instructions {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: var(--win95-light);
-            border: 2px solid var(--win95-dark);
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        
-        .instructions h3 {
-            margin-top: 0;
-            color: var(--win95-blue);
-            font-size: 16px;
-        }
-        
-        .key-hint {
-            background-color: #e0e0e0;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        
-        /* Modal for game over */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
+        .r-tl { top: 12px; left: 12px; }
+        .r-tr { top: 12px; right: 12px; }
+        .r-bl { bottom: 12px; left: 12px; }
+        .r-br { bottom: 12px; right: 12px; }
+
+        #screen {
+            background: radial-gradient(circle at center, #051a05 0%, #000000 90%);
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .modal-content {
-            background-color: var(--win95-gray);
-            border: 3px solid;
-            border-color: var(--win95-dark) var(--win95-light) var(--win95-light) var(--win95-dark);
+            border-radius: 25px; 
             padding: 30px;
-            text-align: center;
-            width: 400px;
-        }
-        
-        .modal-title {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: var(--win95-blue);
-        }
-        
-        .modal-message {
-            margin-bottom: 30px;
-            font-size: 16px;
-        }
-        
-        .btn-group {
+            box-sizing: border-box;
+            box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(51,255,0,0.1);
+            border: 12px solid #050505;
+            position: relative;
+            overflow: hidden;
             display: flex;
-            gap: 15px;
-            justify-content: center;
+            flex-direction: column;
+            color: #33FF00;
+            text-shadow: 0 0 5px #33FF00, 0 0 10px #33FF00;
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.98; }
+            50% { opacity: 1; }
+            100% { opacity: 0.99; }
+        }
+
+        #screen::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            z-index: 4;
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        #screen::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: -10%; left: -10%; width: 120%; height: 120%;
+            background: radial-gradient(ellipse at top left, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 50%);
+            z-index: 5;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        #output {
+            flex-grow: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+            padding-right: 15px;
+            z-index: 3;
+            line-height: 1.2;
+        }
+
+        #input-line {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            z-index: 3;
+            margin-bottom: 10px;
+        }
+
+        #prompt { margin-right: 15px; }
+
+        input[type="text"] {
+            background: transparent;
+            border: none;
+            color: #33FF00;
+            font-family: 'VT323', monospace;
+            font-size: 1em;
+            flex-grow: 1;
+            outline: none;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px #33FF00;
+            letter-spacing: 2px;
+        }
+
+        /* Persistent Command Interface with Tooltips */
+        #command-bar {
+            display: none; 
+            border-top: 2px solid #1a551a;
+            padding-top: 10px;
+            margin-top: auto;
+            font-size: 1.3rem;
+            color: #1a881a;
+            text-shadow: none;
+            z-index: 3;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .cmd-block { 
+            border-right: 2px solid #1a551a; 
+            padding-right: 12px; 
+            margin-right: 12px; 
+            margin-bottom: 5px;
+            position: relative;
+            cursor: help;
+            color: #22a322;
+        }
+        
+        .cmd-block:last-child { border-right: none; }
+
+        /* Command Tooltip Generation */
+        .cmd-block:hover::after {
+            content: attr(data-desc);
+            position: absolute;
+            bottom: 140%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: max-content;
+            max-width: 300px;
+            background: #020a02;
+            border: 2px solid #33FF00;
+            padding: 10px;
+            white-space: pre-wrap;
+            color: #33FF00;
+            z-index: 20;
+            box-shadow: 0 0 15px #000;
+            pointer-events: none;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        /* Cipher Hover Mechanic */
+        .cipher-hint {
+            cursor: help;
+            border-bottom: 2px dotted #33FF00;
+            position: relative;
+            color: #FFFFCC; 
+        }
+        
+        .cipher-hint:hover::after {
+            content: "DECRYPTION LOGIC [SHIFT -3]:\A W -> T\A D -> A\A U -> R\A J -> G\A H -> E\A W -> T\A ========================\A FINAL ANSWER: TARGET\A (TYPE 'TARGET' TO BYPASS)";
+            position: absolute;
+            bottom: 125%; 
+            left: 50%;
+            transform: translateX(-50%); 
+            width: max-content; 
+            max-width: 80vw; 
+            background: #020a02;
+            border: 2px solid #33FF00;
+            padding: 15px;
+            white-space: pre-wrap; 
+            z-index: 10;
+            box-shadow: 0 0 20px #000;
+            pointer-events: none;
+            color: #33FF00;
+            line-height: 1.2;
+            text-align: left;
         }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="window-title">Tactical Command Simulator v1.0</div>
-        
-        <div class="game-header">
-            <div class="status-panel">
-                <div class="status-item">
-                    <span class="status-icon">P</span>
-                    <span>Player Position: Sector <span id="player-pos">A-5</span></span>
-                </div>
-                <div class="status-item">
-                    <span class="status-icon">E</span>
-                    <span>Enemies Detected: <span id="enemy-count">0</span></span>
-                </div>
-                <div class="status-item">
-                    <span class="status-icon">M</span>
-                    <span>Missiles Ready: <span id="missile-count">10</span></span>
-                </div>
-            </div>
-            <button onclick="resetGame()">Reset Mission</button>
-        </div>
-        
-        <div class="game-area">
-            <div class="map-container">
-                <canvas id="gameCanvas" width="600" height="450"></canvas>
-            </div>
-            
-            <div class="command-panel">
-                <div class="panel-section">
-                    <div class="panel-title">SONAR DISPLAY</div>
-                    <div class="sonar-display">
-                        <div class="sonar-grid" id="sonarGrid"></div>
-                    </div>
-                </div>
-                
-                <div class="panel-section">
-                    <div class="panel-title">COMMAND CENTER</div>
-                    <div class="controls">
-                        <button onclick="movePlayer(0, -1)">↑ Move North</button>
-                        <button onclick="movePlayer(0, 1)">↓ Move South</button>
-                        <button onclick="movePlayer(-1, 0)">← Move West</button>
-                        <button onclick="movePlayer(1, 0)">→ Move East</button>
-                        <button onclick="scanSector()">Scan Sector (Sonar)</button>
-                        <button onclick="launchMissile()" style="background-color: #ffcccc;">🚀 Launch Missile</button>
-                    </div>
-                </div>
-                
-                <div class="panel-section">
-                    <div class="panel-title">MISSION LOG</div>
-                    <div class="log-panel" id="missionLog"></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="instructions">
-            <h3>MISSION BRIEFING</h3>
-            <p>Welcome, Commander! Your mission is to locate and neutralize enemy forces in this sector.</p>
-            
-            <p><strong>CONTROLS:</strong></p>
-            <ul style="margin-top: 10px; margin-bottom: 10px;">
-                <li>Use arrow buttons or <span class="key-hint">↑ ↓ ← →</span> to navigate the grid</li>
-                <li>Click <strong>Scan Sector</strong> to use sonar and detect enemies nearby</li>
-                <li>Launch missiles at detected enemy positions with <strong>🚀 Launch Missile</strong></li>
-            </ul>
-            
-            <p><strong>MISSION OBJECTIVE:</strong> Destroy all 8 enemy units to complete the mission!</p>
-        </div>
-    </div>
-    
-    <!-- Game Over Modal -->
-    <div id="gameOverModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-title" id="modalTitle">Mission Complete</div>
-            <div class="modal-message" id="modalMessage">All enemy forces have been neutralized.</div>
-            <div class="btn-group">
-                <button onclick="resetGame()">New Mission</button>
-                <button onclick="closeModal()">Close</button>
-            </div>
-        </div>
-    </div>
 
-    <script>
-        // Game Constants
-        const GRID_ROWS = 10;
-        const GRID_COLS = 12;
-        const CELL_SIZE = 45;
-        const TOTAL_ENEMIES = 8;
+<div id="chassis">
+    <div class="rivet r-tl"></div>
+    <div class="rivet r-tr"></div>
+    <div class="rivet r-bl"></div>
+    <div class="rivet r-br"></div>
+    <div id="screen">
+        <div id="output"></div>
+        <div id="input-line">
+            <span id="prompt">SYS_INIT></span>
+            <input type="text" id="cmd" autocomplete="off" autofocus>
+        </div>
+        <div id="command-bar">
+            <span class="cmd-block" data-desc="Check system and tracking risk metrics.">STATUS</span>
+            <span class="cmd-block" data-desc="Scan environment targets (e.g., SEARCH DESK).">SEARCH [X]</span>
+            <span class="cmd-block" data-desc="Acquire physical assets.">TAKE [X]</span>
+            <span class="cmd-block" data-desc="Check currently held items.">INV</span>
+            <span class="cmd-block" data-desc="Amplify radio output. High detection risk.">BOOST_SIG</span>
+            <span class="cmd-block" data-desc="Single-use. Confounds enemy Radio Direction Finding.">JAM_FREQ</span>
+            <span class="cmd-block" data-desc="Contact Allied Command for mission parameters.">COMM_HQ</span>
+            <span class="cmd-block" data-desc="Override root directory. Requires DOSSIER.">HACK_ROOT</span>
+            <span class="cmd-block" data-desc="Request extraction transport vector.">REQ_EXTRACT</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const outputDiv = document.getElementById('output');
+    const inputField = document.getElementById('cmd');
+    const promptSpan = document.getElementById('prompt');
+    const commandBar = document.getElementById('command-bar');
+
+    // Engine Variables
+    let state = 'DIFFICULTY_SELECT';
+    let isTyping = false;
+    let easyMode = false;
+    
+    // Tactical Variables
+    let alertLevel = 0;
+    let signalBoosted = 0; 
+    let triangulationRisk = 0;
+    let jammerUsed = false;
+    
+    // Environmental Logic
+    let inventory = [];
+    let environment = {
+        'DESK': ['COMPASS'],
+        'LOCKER': ['DOSSIER']
+    };
+
+    // Procedural Audio Engine
+    let audioCtx;
+    let staticGainNode;
+
+    const initAudio = () => {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            startStaticNoise();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    };
+
+    const startStaticNoise = () => {
+        const bufferSize = audioCtx.sampleRate * 2; 
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         
-        // Game State
-        let gameState = {
-            playerRow: 0,
-            playerCol: 0,
-            enemies: [],
-            missiles: 10,
-            detectedEnemies: [],
-            gameActive: true,
-            scanRadius: 2
-        };
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
         
-        // Initialize Canvas
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 800; 
+
+        staticGainNode = audioCtx.createGain();
+        staticGainNode.gain.value = 0.005; 
+
+        noise.connect(filter);
+        filter.connect(staticGainNode);
+        staticGainNode.connect(audioCtx.destination);
+        noise.start();
+    };
+
+    const playClick = () => {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+
+        const oscHigh = audioCtx.createOscillator();
+        const gainHigh = audioCtx.createGain();
+        oscHigh.type = 'square';
+        oscHigh.frequency.setValueAtTime(1500, t);
+        oscHigh.frequency.exponentialRampToValueAtTime(100, t + 0.015);
+        gainHigh.gain.setValueAtTime(0.4, t);
+        gainHigh.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+        oscHigh.connect(gainHigh).connect(audioCtx.destination);
+        oscHigh.start(t);
+        oscHigh.stop(t + 0.015);
+
+        const oscLow = audioCtx.createOscillator();
+        const gainLow = audioCtx.createGain();
+        oscLow.type = 'triangle';
+        oscLow.frequency.setValueAtTime(400, t);
+        oscLow.frequency.exponentialRampToValueAtTime(50, t + 0.03);
+        gainLow.gain.setValueAtTime(0.3, t);
+        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        oscLow.connect(gainLow).connect(audioCtx.destination);
+        oscLow.start(t);
+        oscLow.stop(t + 0.03);
+    };
+
+    inputField.addEventListener('input', () => {
+        if (inputField.value.trim() !== '') {
+            initAudio(); 
+            playClick();
+        }
+    });
+
+    const printText = (text, speed = 30, callback = null) => {
+        isTyping = true;
+        inputField.disabled = true;
+        let i = 0;
         
-        // Initialize Sonar Grid
-        const sonarGrid = document.getElementById('sonarGrid');
-        
-        // Mission Log Element
-        const missionLog = document.getElementById('missionLog');
-        
-        // Initialize Game
-        function initGame() {
-            gameState.playerRow = 4;
-            gameState.playerCol = 5;
-            gameState.missiles = 10;
-            gameState.gameActive = true;
-            gameState.detectedEnemies = [];
-            
-            // Generate random enemies (ensure not at player position)
-            gameState.enemies = [];
-            while (gameState.enemies.length < TOTAL_ENEMIES) {
-                const row = Math.floor(Math.random() * GRID_ROWS);
-                const col = Math.floor(Math.random() * GRID_COLS);
-                
-                if ((row !== gameState.playerRow || col !== gameState.playerCol) && 
-                    !gameState.enemies.some(e => e.row === row && e.col === col)) {
-                    gameState.enemies.push({ row, col, active: true });
-                }
+        if (text.includes('<span')) {
+            outputDiv.innerHTML += text + '<br><br>';
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            isTyping = false;
+            inputField.disabled = false;
+            inputField.focus();
+            if (callback) callback();
+            return;
+        }
+
+        const interval = setInterval(() => {
+            outputDiv.innerHTML += text.charAt(i);
+            if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playClick();
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            i++;
+            if (i >= text.length) {
+                clearInterval(interval);
+                outputDiv.innerHTML += '<br><br>';
+                isTyping = false;
+                inputField.disabled = false;
+                inputField.focus();
+                if (callback) callback();
             }
-            
-            updateUI();
-            drawMap();
-            updateSonar();
-            logMessage("Mission started. Enemy forces detected in this sector.", "info");
+        }, speed);
+    };
+
+    const handleInput = (rawCmd) => {
+        if (isTyping) return;
+        initAudio();
+        const cmd = rawCmd.trim().toUpperCase();
+        outputDiv.innerHTML += `<span style="color:#FFF">> ${cmd}</span><br>`;
+        inputField.value = '';
+
+        switch (state) {
+            case 'DIFFICULTY_SELECT':
+                processDifficulty(cmd);
+                break;
+            case 'BOOT':
+                processBoot(cmd);
+                break;
+            case 'CONNECTED':
+                processCommand(cmd);
+                break;
+            case 'CALC_EXTRACT':
+                processExtraction(cmd);
+                break;
+        }
+    };
+
+    const processDifficulty = (cmd) => {
+        if (cmd === '1' || cmd === '2') {
+            easyMode = (cmd === '2');
+            state = 'BOOT';
+            promptSpan.innerText = "C:\\>";
+            printText("KONFIGURIEREN HARDWARE...\nWARTEN AUF CATHODE RAY TUBE WARMUP...\nVERBINDUNG GESPERRT. TYPE 'HELP' TO DIAGNOSE.");
+        } else {
+            printText("UNGÜLTIGE AUSWAHL. ENTER 1 OR 2.");
+        }
+    };
+
+    const processBoot = (cmd) => {
+        if (cmd === 'HELP') {
+            let cipherString = easyMode ? '<span class="cipher-hint">WDUJHW</span>' : 'WDUJHW';
+            printText(`SYSTEM FEHLER: ALLIED OVERRIDE REQUIRED. ZUGRIFF DENIED.\nAUTHORIZATION CIPHER IN USE: CAESAR SHIFT -3.\nABGEFANGEN KEY: ${cipherString}\nENTER DECRYPTED SCHLÜSSEL:`);
+            return;
         }
         
-        // Draw the Map
-        function drawMap() {
-            // Clear canvas
-            ctx.fillStyle = '#003366';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw grid lines
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
-            
-            for (let row = 0; row <= GRID_ROWS; row++) {
-                ctx.beginPath();
-                ctx.moveTo(0, row * CELL_SIZE);
-                ctx.lineTo(canvas.width, row * CELL_SIZE);
-                ctx.stroke();
-            }
-            
-            for (let col = 0; col <= GRID_COLS; col++) {
-                ctx.beginPath();
-                ctx.moveTo(col * CELL_SIZE, 0);
-                ctx.lineTo(col * CELL_SIZE, canvas.height);
-                ctx.stroke();
-            }
-            
-            // Draw player
-            const playerX = gameState.playerCol * CELL_SIZE + CELL_SIZE / 2;
-            const playerY = gameState.playerRow * CELL_SIZE + CELL_SIZE / 2;
-            
-            ctx.fillStyle = '#00ff00';
-            ctx.beginPath();
-            ctx.arc(playerX, playerY, CELL_SIZE / 3, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw player "ship" indicator
-            ctx.strokeStyle = '#00cc00';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(
-                gameState.playerCol * CELL_SIZE + 10,
-                gameState.playerRow * CELL_SIZE + 10,
-                CELL_SIZE - 20,
-                CELL_SIZE - 20
-            );
-            
-            // Draw detected enemies (blue circles)
-            gameState.detectedEnemies.forEach(enemy => {
-                const enemyX = enemy.col * CELL_SIZE + CELL_SIZE / 2;
-                const enemyY = enemy.row * CELL_SIZE + CELL_SIZE / 2;
-                
-                ctx.fillStyle = '#0099ff';
-                ctx.beginPath();
-                ctx.arc(enemyX, enemyY, 8, 0, Math.PI * 2);
-                ctx.fill();
+        if (cmd === 'TARGET') {
+            printText("ZUGRIFF GEWÄHRT. AUTHORIZATION ACCEPTED. WELCOME TO TERMINAL MK IV.\nTYPE 'HELP' FOR TACTICAL OPERATIONS.", 30, () => {
+                state = 'CONNECTED';
+                promptSpan.innerText = "HQ_LINK>";
             });
-            
-            // Draw active enemies (red triangles)
-            gameState.enemies.forEach(enemy => {
-                if (enemy.active) {
-                    const enemyX = enemy.col * CELL_SIZE + CELL_SIZE / 2;
-                    const enemyY = enemy.row * CELL_SIZE + CELL_SIZE / 2;
-                    
-                    ctx.fillStyle = '#ff0000';
-                    ctx.beginPath();
-                    ctx.moveTo(enemyX, enemyY - 10);
-                    ctx.lineTo(enemyX + 10, enemyY + 8);
-                    ctx.lineTo(enemyX - 10, enemyY + 8);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-            });
-            
-            // Draw missile trails
-            gameState.missileTrails = gameState.missileTrails || [];
-            gameState.missileTrails.forEach((trail, index) => {
-                ctx.strokeStyle = trail.color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(trail.startX, trail.startY);
-                ctx.lineTo(trail.endX, trail.endY);
-                ctx.stroke();
-                
-                // Update trail animation
-                const progress = trail.progress + 0.1;
-                if (progress < 1) {
-                    trail.progress = progress;
-                    trail.currentX = trail.startX + (trail.endX - trail.startX) * progress;
-                    trail.currentY = trail.startY + (trail.endY - trail.startY) * progress;
-                    
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.arc(trail.currentX, trail.currentY, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            });
-            
-            // Clean up completed trails
-            gameState.missileTrails = gameState.missileTrails.filter(trail => trail.progress < 1);
-        }
-        
-        // Update Sonar Display
-        function updateSonar() {
-            sonarGrid.innerHTML = '';
-            
-            for (let i = 0; i < GRID_ROWS * GRID_COLS; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'sonar-cell';
-                
-                const row = Math.floor(i / GRID_COLS);
-                const col = i % GRID_COLS;
-                
-                // Check if this cell has a detected enemy
-                if (gameState.detectedEnemies.some(e => e.row === row && e.col === col)) {
-                    cell.classList.add('detected');
-                }
-                
-                // Highlight player position
-                if (row === gameState.playerRow && col === gameState.playerCol) {
-                    cell.classList.add('player');
-                }
-                
-                sonarGrid.appendChild(cell);
-            }
-        }
-        
-        // Update UI Elements
-        function updateUI() {
-            document.getElementById('player-pos').textContent = `${String.fromCharCode(65 + gameState.playerCol)}-${gameState.playerRow + 1}`;
-            document.getElementById('enemy-count').textContent = gameState.enemies.filter(e => e.active).length;
-            document.getElementById('missile-count').textContent = gameState.missiles;
-        }
-        
-        // Log Messages
-        function logMessage(message, type = 'info') {
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            
-            const timestamp = new Date().toLocaleTimeString();
-            entry.textContent = `[${timestamp}] ${message}`;
-            
-            missionLog.appendChild(entry);
-            missionLog.scrollTop = missionLog.scrollHeight;
-        }
-        
-        // Move Player
-        function movePlayer(deltaCol, deltaRow) {
-            if (!gameState.gameActive) return;
-            
-            const newRow = gameState.playerRow + deltaRow;
-            const newCol = gameState.playerCol + deltaCol;
-            
-            // Check boundaries
-            if (newRow >= 0 && newRow < GRID_ROWS && newCol >= 0 && newCol < GRID_COLS) {
-                gameState.playerRow = newRow;
-                gameState.playerCol = newCol;
-                
-                logMessage(`Moved to Sector ${String.fromCharCode(65 + newCol)}-${newRow + 1}`, 'info');
-                updateUI();
-                drawMap();
-            }
-        }
-        
-        // Scan Sector
-        function scanSector() {
-            if (!gameState.gameActive) return;
-            
-            const detected = [];
-            
-            // Check enemies within scan radius
-            gameState.enemies.forEach(enemy => {
-                if (enemy.active) {
-                    const distance = Math.abs(enemy.row - gameState.playerRow) + 
-                                   Math.abs(enemy.col - gameState.playerCol);
-                    
-                    if (distance <= gameState.scanRadius) {
-                        detected.push(enemy);
-                    }
-                }
-            });
-            
-            // Update detected enemies
-            detected.forEach(newEnemy => {
-                if (!gameState.detectedEnemies.some(e => e.row === newEnemy.row && e.col === newEnemy.col)) {
-                    gameState.detectedEnemies.push(newEnemy);
-                }
-            });
-            
-            logMessage(`Sonar scan complete. ${detected.length} signatures detected in this sector.`, 
-                      detected.length > 0 ? 'warning' : 'info');
-            
-            updateUI();
-            updateSonar();
-        }
-        
-        // Launch Missile
-        function launchMissile() {
-            if (!gameState.gameActive) return;
-            
-            if (gameState.missiles <= 0) {
-                logMessage("No missiles available! Reload required.", "danger");
-                return;
-            }
-            
-            if (gameState.detectedEnemies.length === 0) {
-                logMessage("No enemy targets detected. Scan sector first!", "warning");
-                return;
-            }
-            
-            // Select random target from detected enemies
-            const targetIndex = Math.floor(Math.random() * gameState.detectedEnemies.length);
-            const target = gameState.detectedEnemies[targetIndex];
-            
-            // Create missile trail animation
-            const startX = gameState.playerCol * CELL_SIZE + CELL_SIZE / 2;
-            const startY = gameState.playerRow * CELL_SIZE + CELL_SIZE / 2;
-            const endX = target.col * CELL_SIZE + CELL_SIZE / 2;
-            const endY = target.row * CELL_SIZE + CELL_SIZE / 2;
-            
-            gameState.missileTrails = gameState.missileTrails || [];
-            gameState.missileTrails.push({
-                startX, startY, endX, endY,
-                progress: 0,
-                color: `hsl(${Math.random() * 60 + 300}, 100%, 50%)` // Pink/purple range
-            });
-            
-            gameState.missiles--;
-            logMessage(`Missile launched at Sector ${String.fromCharCode(65 + target.col)}-${target.row + 1}!`, "success");
-            
-            updateUI();
-            
-            // Check if missile hits (simple implementation - always hit for fun)
-            setTimeout(() => {
-                // Remove enemy
-                gameState.enemies = gameState.enemies.map(enemy => {
-                    if (enemy.row === target.row && enemy.col === target.col && enemy.active) {
-                        enemy.active = false;
-                        return enemy;
-                    }
-                    return enemy;
+        } else {
+            alertLevel++;
+            printText(`INVALID KEY. THE GESTAPO HAS BEEN NOTIFIED OF YOUR INCOMPETENCE.\nWARNSTUFE: ${alertLevel}/3. TYPE 'HELP'.`);
+            if (alertLevel >= 3) {
+                printText("*** CRITICAL ALERT: BUNKER DOORS BREACHED. TERMINAL PURGING. YOU HAVE FAILED. ***", 50, () => {
+                    inputField.style.display = 'none';
+                    if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
                 });
-                
-                // Remove from detected enemies
-                gameState.detectedEnemies = gameState.detectedEnemies.filter(
-                    e => !(e.row === target.row && e.col === target.col)
-                );
-                
-                logMessage(`Target destroyed! Sector ${String.fromCharCode(65 + target.col)}-${target.row + 1} secured.`, "success");
-                updateUI();
-                drawMap();
-                updateSonar();
-                
-                // Check win condition
-                const remainingEnemies = gameState.enemies.filter(e => e.active).length;
-                if (remainingEnemies === 0) {
-                    endGame(true);
+            }
+        }
+    };
+
+    const processCommand = (cmd) => {
+        const args = cmd.split(' ');
+        const action = args[0];
+        const target = args[1];
+
+        if (action === 'HELP') {
+            commandBar.style.display = 'flex';
+            printText("COMMAND INTERFACE UNLOCKED. HUD ENGAGED. HOVER OVER BOTTOM COMMANDS FOR ASSISTANCE.");
+        } else if (action === 'STATUS') {
+            printText(`SYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}\nJAMMER AVAILABLE: ${!jammerUsed}`);
+        } else if (action === 'SEARCH') {
+            if (!target) {
+                printText("SPECIFY TARGET: SEARCH DESK OR SEARCH LOCKER.");
+            } else if (environment[target]) {
+                if (environment[target].length > 0) {
+                    printText(`SCANNED ${target}. IDENTIFIED ASSETS: ${environment[target].join(', ')}.`);
+                } else {
+                    printText(`${target} IS EMPTY.`);
                 }
-            }, 800); // Animation delay
-        }
-        
-        // End Game
-        function endGame(victory) {
-            gameState.gameActive = false;
-            
-            const modal = document.getElementById('gameOverModal');
-            const title = document.getElementById('modalTitle');
-            const message = document.getElementById('modalMessage');
-            
-            if (victory) {
-                title.textContent = "Mission Accomplished!";
-                title.style.color = "#00cc00";
-                message.textContent = `Excellent work, Commander! You've neutralized all ${TOTAL_ENEMIES} enemy units with ${gameState.missiles} missiles remaining.`;
             } else {
-                title.textContent = "Mission Failed";
-                title.style.color = "#cc0000";
-                message.textContent = "Your forces have been compromised. Better luck next time, Commander.";
+                printText("TARGET NOT FOUND IN IMMEDIATE VICINITY.");
             }
-            
-            modal.style.display = 'flex';
-        }
-        
-        // Reset Game
-        function resetGame() {
-            document.getElementById('missionLog').innerHTML = '';
-            initGame();
-            closeModal();
-        }
-        
-        // Close Modal
-        function closeModal() {
-            document.getElementById('gameOverModal').style.display = 'none';
-        }
-        
-        // Keyboard Controls
-        document.addEventListener('keydown', (e) => {
-            if (!gameState.gameActive) return;
-            
-            switch(e.key) {
-                case 'ArrowUp':
-                    movePlayer(0, -1);
-                    break;
-                case 'ArrowDown':
-                    movePlayer(0, 1);
-                    break;
-                case 'ArrowLeft':
-                    movePlayer(-1, 0);
-                    break;
-                case 'ArrowRight':
-                    movePlayer(1, 0);
-                    break;
-                case 's':
-                case 'S':
-                    scanSector();
-                    break;
-                case 'm':
-                case 'M':
-                    launchMissile();
-                    break;
+        } else if (action === 'TAKE') {
+            if (!target) printText("SPECIFY ITEM TO TAKE.");
+            else {
+                let found = false;
+                for (let key in environment) {
+                    const index = environment[key].indexOf(target);
+                    if (index > -1) {
+                        environment[key].splice(index, 1);
+                        inventory.push(target);
+                        printText(`ACQUIRED: ${target}. ADDED TO INVENTORY.`);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) printText("ITEM NOT FOUND OR ALREADY ACQUIRED.");
             }
-        });
-        
-        // Initialize on load
-        window.onload = function() {
-            initGame();
-            
-            // Add some initial log messages for atmosphere
-            setTimeout(() => {
-                logMessage("Systems online. Welcome to Tactical Command.", "info");
-                logMessage("Enemy activity reported in this sector. Proceed with caution.", "warning");
-            }, 500);
-        };
-    </script>
+        } else if (action === 'INV') {
+            if (inventory.length === 0) printText("INVENTORY EMPTY.");
+            else printText(`CURRENT INVENTORY: ${inventory.join(', ')}.`);
+        } else if (action === 'BOOST_SIG') {
+            if (signalBoosted >= 3) {
+                printText("SIGNAL AT MAXIMUM THRESHOLD. EQUIPMENT OVERHEATING.");
+            } else {
+                signalBoosted++;
+                triangulationRisk += 30;
+                
+                if (staticGainNode) {
+                    let newVolume = 0.005 + (signalBoosted * 0.15);
+                    staticGainNode.gain.linearRampToValueAtTime(newVolume, audioCtx.currentTime + 1);
+                }
+
+                printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR. YOUR EXTRACTION WINDOW IS SHRINKING.`);
+            }
+        } else if (action === 'JAM_FREQ') {
+            if (jammerUsed) {
+                printText("FREQUENCY JAMMER ALREADY EXPENDED. HARDWARE BURNT OUT.");
+            } else {
+                jammerUsed = true;
+                triangulationRisk = Math.max(0, triangulationRisk - 40);
+                printText("ELECTRONIC WARFARE DEPLOYED. BROADBAND WHITE NOISE TRANSMITTED. ENEMY DIRECTION FINDING CONFOUNDED.\nTRIANGULATION RISK SEVERELY REDUCED.");
+            }
+        } else if (action === 'COMM_HQ') {
+            if (signalBoosted === 0) {
+                printText("TRANSMISSION FAILED. STATIC INTERFERENCE TOO HIGH. HQ CANNOT HEAR YOU.");
+            } else {
+                printText(`HQ: "We read you. Listen closely. We cannot pull you out yet. That bunker mainframe contains the V2 flight trajectories.\nExecute command HACK_ROOT to download them. We need those plans to win the war. Out."`);
+            }
+        } else if (action === 'HACK_ROOT') {
+            if (inventory.includes('WAR_PLANS')) {
+                printText("ROOT DIRECTORY ALREADY COMPROMISED. SCHEMATICS SECURED.");
+            } else if (!inventory.includes('DOSSIER')) {
+                printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. SEARCH THE ENVIRONMENT FOR INTEL.");
+            } else {
+                inventory.push('WAR_PLANS');
+                triangulationRisk += 25;
+                printText("DOSSIER PASSWORD ACCEPTED. INITIATING MAINFRAME OVERRIDE...\nSUCCESS. V2 SCHEMATICS DOWNLOADED.\nWARNING: MASSIVE DATA TRANSFER DETECTED BY ENEMY ROUTERS. TRACKING RISK SPIKED.");
+            }
+        } else if (action === 'REQ_EXTRACT') {
+            if (signalBoosted === 0) {
+                printText("TRANSMISSION FAILED. SIGNAL WEAK.");
+            } else if (!inventory.includes('COMPASS') || !inventory.includes('WAR_PLANS')) {
+                printText(`HQ: "NEGATIVE ON EXTRACTION. WE NEED THE V2 WAR_PLANS AND YOU NEED A COMPASS TO NAVIGATE TO THE LZ. ACCOMPLISH THE MISSION."`);
+            } else {
+                state = 'CALC_EXTRACT';
+                let timeWindow = 45 - (triangulationRisk * 0.35); 
+                printText(`HQ CONNECTED.\n"Plans confirmed. Brilliant work. Patrols are moving in fast. We are holding a C-47 transport at Sector Grid 70-X."\n"You are currently at Sector Grid 40-X. The distance is exactly 30 kilometers."\n"You must travel at a sprint pace of 10 kilometers per hour."\n"Due to enemy convergence, we can only keep the plane waiting for ${timeWindow.toFixed(1)} hours."\n\nCALCULATE: How many hours will it take you to reach the transport?\nENTER HOURS:`);
+            }
+        } else {
+            printText("COMMAND UNRECOGNIZED. FOCUS ON THE MISSION.");
+        }
+    };
+
+    const processExtraction = (cmd) => {
+        let answer = parseFloat(cmd);
+        if (answer === 3) {
+            let timeWindow = 45 - (triangulationRisk * 0.35);
+            if (3 <= timeWindow) {
+                printText("COORDINATES LOCKED. THE MATH CHECKS OUT.\nGRAB YOUR GEAR. WE WILL SEE YOU IN LONDON.\n\n*** MISSION SUCCESS ***", 40, () => {
+                    inputField.style.display = 'none';
+                    if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3); 
+                });
+            } else {
+                printText("THE MATH IS CORRECT, BUT YOU TOOK TOO LONG TO MANAGE YOUR SIGNAL RISKS. THE PLANE LEFT.\nYOUR DECISIONS BROUGHT THE PATROLS TOO FAST.\n\n*** MISSION FAILED ***", 60, () => {
+                    inputField.style.display = 'none';
+                });
+            }
+        } else {
+            printText("INCORRECT CALCULATION. TRY AGAIN:");
+        }
+    };
+
+    printText("SYSTEM AKTIVIERT. TERMINAL POWERED ON.\nBITTE CHOOSE YOUR PROTOCOL:\n[1] NORMAL OP (STANDARD VERSCHLÜSSELUNG)\n[2] TRAINING OP (ASSISTED ENTSCHLÜSSELUNG)\nENTER EINGABE:");
+
+    inputField.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            handleInput(inputField.value);
+        }
+    });
+</script>
+
 </body>
 </html>
