@@ -47,28 +47,28 @@
         .r-bl { bottom: 12px; left: 12px; }
         .r-br { bottom: 12px; right: 12px; }
 
+        /* Muted P1 Phosphor Aesthetic */
         #screen {
-            background: radial-gradient(circle at center, #051a05 0%, #000000 90%);
+            background: radial-gradient(circle at center, #051505 0%, #000000 90%);
             width: 100%;
             height: 100%;
             border-radius: 25px; 
             padding: 30px;
             box-sizing: border-box;
-            box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(51,255,0,0.1);
+            box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(107,194,107,0.05);
             border: 12px solid #050505;
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            color: #33FF00;
-            text-shadow: 0 0 5px #33FF00, 0 0 10px #33FF00;
+            color: #6bc26b; /* Muted Green */
+            text-shadow: 0 0 2px #6bc26b, 0 0 6px rgba(107,194,107,0.4); /* Reduced Bloom */
             font-size: 1.8rem;
             letter-spacing: 2px;
             animation: flicker 0.15s infinite;
             transition: background 0.5s, opacity 0.5s;
         }
 
-        /* Power Loss State */
         .power-loss {
             background: #000 !important;
             box-shadow: none !important;
@@ -100,7 +100,7 @@
             display: block;
             position: absolute;
             top: -10%; left: -10%; width: 120%; height: 120%;
-            background: radial-gradient(ellipse at top left, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 50%);
+            background: radial-gradient(ellipse at top left, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 50%);
             z-index: 5;
             pointer-events: none;
             border-radius: 50%;
@@ -126,11 +126,11 @@
         }
 
         #prompt { margin-right: 15px; transition: color 0.3s; }
-        .trace-warning { color: #FF3333; text-shadow: 0 0 5px #FF3333; }
+        .trace-warning { color: #d9534f; text-shadow: 0 0 4px #d9534f; } /* Muted Red */
         
         .cursor-blink {
             animation: blinker 1s linear infinite;
-            color: #33FF00;
+            color: #6bc26b;
         }
         @keyframes blinker {
             50% { opacity: 0; }
@@ -149,14 +149,13 @@
             letter-spacing: 2px;
         }
 
-        /* Persistent Command Interface */
         #command-bar {
             display: none; 
-            border-top: 2px solid #1a551a;
+            border-top: 2px solid #2d5a2d;
             padding-top: 10px;
             margin-top: auto;
             font-size: 1.3rem;
-            color: #1a881a;
+            color: #4a8f4a;
             text-shadow: none;
             z-index: 3;
             justify-content: space-between;
@@ -164,13 +163,13 @@
         }
 
         .cmd-block { 
-            border-right: 2px solid #1a551a; 
+            border-right: 2px solid #2d5a2d; 
             padding-right: 12px; 
             margin-right: 12px; 
             margin-bottom: 5px;
             position: relative;
             cursor: help;
-            color: #22a322;
+            color: #5ebd5e;
         }
         
         .cmd-block:last-child { border-right: none; }
@@ -184,12 +183,12 @@
             width: max-content;
             max-width: 300px;
             background: #020a02;
-            border: 2px solid #33FF00;
+            border: 2px solid #6bc26b;
             padding: 10px;
             white-space: pre-wrap;
-            color: #33FF00;
+            color: #6bc26b;
             z-index: 20;
-            box-shadow: 0 0 15px #000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
             pointer-events: none;
             font-size: 1.2rem;
             text-align: center;
@@ -197,9 +196,9 @@
 
         .cipher-hint {
             cursor: help;
-            border-bottom: 2px dotted #33FF00;
+            border-bottom: 2px dotted #6bc26b;
             position: relative;
-            color: #FFFFCC; 
+            color: #e6e6b8; 
         }
         
         .cipher-hint:hover::after {
@@ -211,13 +210,13 @@
             width: max-content; 
             max-width: 80vw; 
             background: #020a02;
-            border: 2px solid #33FF00;
+            border: 2px solid #6bc26b;
             padding: 15px;
             white-space: pre-wrap; 
             z-index: 10;
-            box-shadow: 0 0 20px #000;
+            box-shadow: 0 0 15px #000;
             pointer-events: none;
-            color: #33FF00;
+            color: #6bc26b;
             line-height: 1.2;
             text-align: left;
         }
@@ -237,8 +236,9 @@
             <input type="text" id="cmd" autocomplete="off" autofocus>
         </div>
         <div id="command-bar">
+            <span class="cmd-block" data-desc="Survey immediate surroundings for targets.">OBSERVE</span>
             <span class="cmd-block" data-desc="Check system and tracking risk metrics.">STATUS</span>
-            <span class="cmd-block" data-desc="Scan environment targets (e.g., SEARCH MAP).">SEARCH [X]</span>
+            <span class="cmd-block" data-desc="Scan bracketed targets (e.g., SEARCH DESK).">SEARCH [X]</span>
             <span class="cmd-block" data-desc="Acquire physical assets.">TAKE [X]</span>
             <span class="cmd-block" data-desc="Open locked assets (e.g., UNLOCK SAFE 123)">UNLOCK [X] [PIN]</span>
             <span class="cmd-block" data-desc="Amplify radio output. High detection risk.">BOOST_SIG</span>
@@ -259,32 +259,27 @@
     const chassis = document.getElementById('chassis');
     const screen = document.getElementById('screen');
 
-    // Engine Variables
     let state = 'DIFFICULTY_SELECT';
     let isTyping = false;
     let easyMode = false;
     
-    // Tactical Variables
     let alertLevel = 0;
     let signalBoosted = 0; 
     let triangulationRisk = 0;
     let jammerUsed = false;
     
-    // Time Pressure Variables
     let traceActive = false;
     let traceLimit = 15;
     let strikeCalled = false;
     
-    // Environmental Logic
     let inventory = [];
     let environment = {
-        'DESK': ['COMPASS', 'MAP'],
-        'LOCKER': ['DOSSIER'],
+        'DESK': ['COMPASS', 'MAP', 'BRASS_CASING', 'STALE_BREAD'],
+        'LOCKER': ['DOSSIER', 'WOOL_SOCKS', 'LUNCHBOX'],
         'SAFE': ['OVERRIDE_KEY'] 
     };
     let safeLocked = true;
 
-    // Procedural Audio Engine
     let audioCtx;
     let staticGainNode;
 
@@ -308,7 +303,7 @@
         
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 800; 
+        filter.frequency.value = 600; 
 
         staticGainNode = audioCtx.createGain();
         staticGainNode.gain.value = 0.005; 
@@ -323,33 +318,34 @@
         if (!audioCtx) return;
         const t = audioCtx.currentTime;
 
+        // The "Snap" (Buckling spring - higher pitch, faster decay)
         const oscHigh = audioCtx.createOscillator();
         const gainHigh = audioCtx.createGain();
         oscHigh.type = 'square';
-        oscHigh.frequency.setValueAtTime(1500, t);
-        oscHigh.frequency.exponentialRampToValueAtTime(100, t + 0.015);
+        oscHigh.frequency.setValueAtTime(2200, t); 
+        oscHigh.frequency.exponentialRampToValueAtTime(100, t + 0.01); 
         gainHigh.gain.setValueAtTime(0.4, t);
-        gainHigh.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+        gainHigh.gain.exponentialRampToValueAtTime(0.001, t + 0.01);
         oscHigh.connect(gainHigh).connect(audioCtx.destination);
         oscHigh.start(t);
-        oscHigh.stop(t + 0.015);
+        oscHigh.stop(t + 0.01);
 
+        // The "Thud" (Bottoming out against the metal plate - tighter resonance)
         const oscLow = audioCtx.createOscillator();
         const gainLow = audioCtx.createGain();
         oscLow.type = 'triangle';
-        oscLow.frequency.setValueAtTime(400, t);
-        oscLow.frequency.exponentialRampToValueAtTime(50, t + 0.03);
-        gainLow.gain.setValueAtTime(0.3, t);
-        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        oscLow.frequency.setValueAtTime(300, t); 
+        oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.035);
+        gainLow.gain.setValueAtTime(0.35, t);
+        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
         oscLow.connect(gainLow).connect(audioCtx.destination);
         oscLow.start(t);
-        oscLow.stop(t + 0.03);
+        oscLow.stop(t + 0.035);
     };
 
     const triggerExplosion = () => {
         if (!audioCtx) return;
         
-        // Massive low frequency blast
         const bufferSize = audioCtx.sampleRate * 2;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -364,13 +360,12 @@
         filter.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 1.5);
         
         const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(2.0, audioCtx.currentTime); // High gain clipping
+        gain.gain.setValueAtTime(2.0, audioCtx.currentTime); 
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
         
         noise.connect(filter).connect(gain).connect(audioCtx.destination);
         noise.start();
 
-        // Hardware Failure Visuals
         let shakeFrames = 0;
         const shakeInterval = setInterval(() => {
             const x = Math.random() * 10 - 5;
@@ -383,7 +378,6 @@
             }
         }, 30);
 
-        // Data Scramble
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>[]{}";
         let glitchCount = 0;
         const glitchInterval = setInterval(() => {
@@ -409,7 +403,6 @@
             staticGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
         }
 
-        // Wait 4 seconds in the dark
         setTimeout(rebootSystem, 4000);
     };
 
@@ -419,7 +412,6 @@
         inputField.style.display = "block";
         inputField.value = "";
         
-        // Remove trace visuals
         promptSpan.classList.remove('trace-warning');
         inputField.classList.remove('trace-warning');
         
@@ -429,7 +421,7 @@
             staticGainNode.gain.linearRampToValueAtTime(0.005, audioCtx.currentTime + 2);
         }
 
-        printText("AUXILIARY POWER ONLINE.\nSTRUCTURAL INTEGRITY CRITICAL.\nLOCAL ROUTERS: DESTROYED.\nNETWORK TRACE: SEVERED.\n\nEVACUATION MANDATORY. TYPE 'HELP' OR 'REQ_EXTRACT'.", 40, () => {
+        printText("AUXILIARY POWER ONLINE.\nSTRUCTURAL INTEGRITY CRITICAL.\nLOCAL ROUTERS: DESTROYED.\nNETWORK TRACE: SEVERED.\n\nEVACUATION MANDATORY. TYPE 'REQ_EXTRACT'.", 40, () => {
             commandBar.style.display = 'flex';
         });
     };
@@ -477,7 +469,7 @@
         initAudio();
         const cmd = rawCmd.trim().toUpperCase();
         
-        let colorClass = traceActive ? 'style="color:#FF3333"' : 'style="color:#FFF"';
+        let colorClass = traceActive ? 'style="color:#d9534f"' : 'style="color:#FFF"';
         outputDiv.innerHTML += `<span ${colorClass}>> ${cmd}</span><br>`;
         inputField.value = '';
 
@@ -509,7 +501,6 @@
         }
     };
 
-    // Helper to get action without mutating state
     const action = (cmd) => cmd.split(' ')[0];
 
     const processDifficulty = (cmd) => {
@@ -556,6 +547,8 @@
         if (action === 'HELP') {
             commandBar.style.display = 'flex';
             printText("COMMAND INTERFACE UNLOCKED. HUD ENGAGED. HOVER OVER BOTTOM COMMANDS FOR ASSISTANCE.");
+        } else if (action === 'OBSERVE') {
+            printText("YOU ARE IN A DAMP CONCRETE BUNKER.\nTO YOUR LEFT IS A RUSTED METAL [LOCKER].\nIN THE CENTER IS A WOODEN COMMAND [DESK].\nA HEAVY STEEL [SAFE] IS RECESSED INTO THE REAR WALL.\nTHE FLOOR IS LITTERED WITH DEBRIS.");
         } else if (action === 'STATUS') {
             printText(`SYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}\nJAMMER AVAILABLE: ${!jammerUsed}`);
         } else if (action === 'SEARCH') {
@@ -634,13 +627,13 @@
             if (signalBoosted === 0) {
                 printText("TRANSMISSION FAILED. STATIC INTERFERENCE TOO HIGH. HQ CANNOT HEAR YOU.");
             } else {
-                printText(`HQ: "We read you. Listen closely. That bunker contains V2 trajectories. Execute command HACK_ROOT to download them.\nOnce downloaded, SEARCH the MAP for your grid. Use CALL_STRIKE [GRID] to order artillery on your own position to destroy the facility before escaping. Out."`);
+                printText(`HQ: "We read you. Listen closely. That bunker contains V2 trajectories. Execute command HACK_ROOT to download them.\nOnce downloaded, USE 'OBSERVE' to map the room. Find and SEARCH the MAP for your grid. Use CALL_STRIKE [GRID] to order artillery on your own position to destroy the facility before escaping. Out."`);
             }
         } else if (action === 'HACK_ROOT') {
             if (inventory.includes('WAR_PLANS')) {
                 printText("ROOT DIRECTORY ALREADY COMPROMISED. SCHEMATICS SECURED.");
             } else if (!inventory.includes('DOSSIER')) {
-                printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. SEARCH THE LOCKER FOR INTEL DOSSIER.");
+                printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. FIND THE INTEL DOSSIER.");
             } else {
                 inventory.push('WAR_PLANS');
                 traceActive = true;
