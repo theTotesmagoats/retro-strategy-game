@@ -31,6 +31,7 @@
             position: relative;
             display: flex;
             flex-direction: column;
+            transition: transform 0.05s;
         }
 
         .rivet {
@@ -64,6 +65,17 @@
             font-size: 1.8rem;
             letter-spacing: 2px;
             animation: flicker 0.15s infinite;
+            transition: background 0.5s, opacity 0.5s;
+        }
+
+        /* Power Loss State */
+        .power-loss {
+            background: #000 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+        }
+        .power-loss::after, .power-loss::before {
+            display: none !important;
         }
 
         @keyframes flicker {
@@ -102,6 +114,7 @@
             padding-right: 15px;
             z-index: 3;
             line-height: 1.2;
+            word-wrap: break-word;
         }
 
         #input-line {
@@ -112,22 +125,31 @@
             margin-bottom: 10px;
         }
 
-        #prompt { margin-right: 15px; }
+        #prompt { margin-right: 15px; transition: color 0.3s; }
+        .trace-warning { color: #FF3333; text-shadow: 0 0 5px #FF3333; }
+        
+        .cursor-blink {
+            animation: blinker 1s linear infinite;
+            color: #33FF00;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
 
         input[type="text"] {
             background: transparent;
             border: none;
-            color: #33FF00;
+            color: inherit;
             font-family: 'VT323', monospace;
             font-size: 1em;
             flex-grow: 1;
             outline: none;
             text-transform: uppercase;
-            text-shadow: 0 0 5px #33FF00;
+            text-shadow: inherit;
             letter-spacing: 2px;
         }
 
-        /* Persistent Command Interface with Tooltips */
+        /* Persistent Command Interface */
         #command-bar {
             display: none; 
             border-top: 2px solid #1a551a;
@@ -153,7 +175,6 @@
         
         .cmd-block:last-child { border-right: none; }
 
-        /* Command Tooltip Generation */
         .cmd-block:hover::after {
             content: attr(data-desc);
             position: absolute;
@@ -174,7 +195,6 @@
             text-align: center;
         }
 
-        /* Cipher Hover Mechanic */
         .cipher-hint {
             cursor: help;
             border-bottom: 2px dotted #33FF00;
@@ -218,13 +238,14 @@
         </div>
         <div id="command-bar">
             <span class="cmd-block" data-desc="Check system and tracking risk metrics.">STATUS</span>
-            <span class="cmd-block" data-desc="Scan environment targets (e.g., SEARCH DESK).">SEARCH [X]</span>
+            <span class="cmd-block" data-desc="Scan environment targets (e.g., SEARCH MAP).">SEARCH [X]</span>
             <span class="cmd-block" data-desc="Acquire physical assets.">TAKE [X]</span>
-            <span class="cmd-block" data-desc="Check currently held items.">INV</span>
+            <span class="cmd-block" data-desc="Open locked assets (e.g., UNLOCK SAFE 123)">UNLOCK [X] [PIN]</span>
             <span class="cmd-block" data-desc="Amplify radio output. High detection risk.">BOOST_SIG</span>
-            <span class="cmd-block" data-desc="Single-use. Confounds enemy Radio Direction Finding.">JAM_FREQ</span>
+            <span class="cmd-block" data-desc="Single-use. Confounds enemy Direction Finding.">JAM_FREQ</span>
             <span class="cmd-block" data-desc="Contact Allied Command for mission parameters.">COMM_HQ</span>
             <span class="cmd-block" data-desc="Override root directory. Requires DOSSIER.">HACK_ROOT</span>
+            <span class="cmd-block" data-desc="Authorize localized artillery. Needs grid vector.">CALL_STRIKE [X]</span>
             <span class="cmd-block" data-desc="Request extraction transport vector.">REQ_EXTRACT</span>
         </div>
     </div>
@@ -235,6 +256,8 @@
     const inputField = document.getElementById('cmd');
     const promptSpan = document.getElementById('prompt');
     const commandBar = document.getElementById('command-bar');
+    const chassis = document.getElementById('chassis');
+    const screen = document.getElementById('screen');
 
     // Engine Variables
     let state = 'DIFFICULTY_SELECT';
@@ -247,12 +270,19 @@
     let triangulationRisk = 0;
     let jammerUsed = false;
     
+    // Time Pressure Variables
+    let traceActive = false;
+    let traceLimit = 15;
+    let strikeCalled = false;
+    
     // Environmental Logic
     let inventory = [];
     let environment = {
-        'DESK': ['COMPASS'],
-        'LOCKER': ['DOSSIER']
+        'DESK': ['COMPASS', 'MAP'],
+        'LOCKER': ['DOSSIER'],
+        'SAFE': ['OVERRIDE_KEY'] 
     };
+    let safeLocked = true;
 
     // Procedural Audio Engine
     let audioCtx;
@@ -316,6 +346,94 @@
         oscLow.stop(t + 0.03);
     };
 
+    const triggerExplosion = () => {
+        if (!audioCtx) return;
+        
+        // Massive low frequency blast
+        const bufferSize = audioCtx.sampleRate * 2;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, audioCtx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 1.5);
+        
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(2.0, audioCtx.currentTime); // High gain clipping
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+        
+        noise.connect(filter).connect(gain).connect(audioCtx.destination);
+        noise.start();
+
+        // Hardware Failure Visuals
+        let shakeFrames = 0;
+        const shakeInterval = setInterval(() => {
+            const x = Math.random() * 10 - 5;
+            const y = Math.random() * 10 - 5;
+            chassis.style.transform = `translate(${x}px, ${y}px)`;
+            shakeFrames++;
+            if(shakeFrames > 30) {
+                clearInterval(shakeInterval);
+                chassis.style.transform = "none";
+            }
+        }, 30);
+
+        // Data Scramble
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>[]{}";
+        let glitchCount = 0;
+        const glitchInterval = setInterval(() => {
+            let str = "";
+            for(let i=0; i<800; i++) str += chars.charAt(Math.floor(Math.random()*chars.length));
+            outputDiv.innerHTML = `<span style="color:#FFF">${str}</span>`;
+            glitchCount++;
+            if(glitchCount > 15) {
+                clearInterval(glitchInterval);
+                powerDown();
+            }
+        }, 80);
+    };
+
+    const powerDown = () => {
+        screen.classList.add('power-loss');
+        outputDiv.innerHTML = "";
+        inputField.style.display = "none";
+        commandBar.style.display = "none";
+        promptSpan.innerHTML = "<span class='cursor-blink'>_</span>";
+        
+        if (staticGainNode) {
+            staticGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        }
+
+        // Wait 4 seconds in the dark
+        setTimeout(rebootSystem, 4000);
+    };
+
+    const rebootSystem = () => {
+        screen.classList.remove('power-loss');
+        promptSpan.innerHTML = "SYS_REBOOT>";
+        inputField.style.display = "block";
+        inputField.value = "";
+        
+        // Remove trace visuals
+        promptSpan.classList.remove('trace-warning');
+        inputField.classList.remove('trace-warning');
+        
+        traceActive = false;
+        
+        if (staticGainNode) {
+            staticGainNode.gain.linearRampToValueAtTime(0.005, audioCtx.currentTime + 2);
+        }
+
+        printText("AUXILIARY POWER ONLINE.\nSTRUCTURAL INTEGRITY CRITICAL.\nLOCAL ROUTERS: DESTROYED.\nNETWORK TRACE: SEVERED.\n\nEVACUATION MANDATORY. TYPE 'HELP' OR 'REQ_EXTRACT'.", 40, () => {
+            commandBar.style.display = 'flex';
+        });
+    };
+
     inputField.addEventListener('input', () => {
         if (inputField.value.trim() !== '') {
             initAudio(); 
@@ -358,8 +476,22 @@
         if (isTyping) return;
         initAudio();
         const cmd = rawCmd.trim().toUpperCase();
-        outputDiv.innerHTML += `<span style="color:#FFF">> ${cmd}</span><br>`;
+        
+        let colorClass = traceActive ? 'style="color:#FF3333"' : 'style="color:#FFF"';
+        outputDiv.innerHTML += `<span ${colorClass}>> ${cmd}</span><br>`;
         inputField.value = '';
+
+        if (traceActive && action(cmd) !== 'CALL_STRIKE') {
+            traceLimit--;
+            promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
+            if (traceLimit <= 0) {
+                printText("NETWORK TRACE COMPLETE. ENEMY HAS LOCKED TERMINAL CONTROLS. GESTAPO PATROLS ARRIVING.\n\n*** MISSION FAILED ***", 60, () => {
+                    inputField.style.display = 'none';
+                    if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
+                });
+                return;
+            }
+        }
 
         switch (state) {
             case 'DIFFICULTY_SELECT':
@@ -376,6 +508,9 @@
                 break;
         }
     };
+
+    // Helper to get action without mutating state
+    const action = (cmd) => cmd.split(' ')[0];
 
     const processDifficulty = (cmd) => {
         if (cmd === '1' || cmd === '2') {
@@ -416,6 +551,7 @@
         const args = cmd.split(' ');
         const action = args[0];
         const target = args[1];
+        const pin = args[2];
 
         if (action === 'HELP') {
             commandBar.style.display = 'flex';
@@ -424,7 +560,11 @@
             printText(`SYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}\nJAMMER AVAILABLE: ${!jammerUsed}`);
         } else if (action === 'SEARCH') {
             if (!target) {
-                printText("SPECIFY TARGET: SEARCH DESK OR SEARCH LOCKER.");
+                printText("SPECIFY TARGET: SEARCH DESK, SEARCH LOCKER, SEARCH SAFE, OR SEARCH MAP.");
+            } else if (target === 'SAFE' && safeLocked) {
+                printText("THE SAFE IS SECURED WITH A 3-DIGIT MECHANICAL LOCK.\nA GERMAN NOTE IS ATTACHED: 'Die Summe ist neun. Die erste Ziffer ist die Hälfte der zweiten. Die dritte ist null.'\n(TRANSLATION: THE SUM IS 9. THE FIRST DIGIT IS HALF THE SECOND. THE THIRD IS ZERO.)\nUSE 'UNLOCK SAFE [PIN]' TO OPEN.");
+            } else if (target === 'MAP') {
+                printText("SCANNED MAP. TOPOGRAPHICAL ANALYSIS COMPLETE.\nYOU ARE CURRENTLY LOCATED AT SECTOR VECTOR: 40-X.\nTHIS IS A HIGH-VALUE TARGET LOCATION.");
             } else if (environment[target]) {
                 if (environment[target].length > 0) {
                     printText(`SCANNED ${target}. IDENTIFIED ASSETS: ${environment[target].join(', ')}.`);
@@ -434,9 +574,24 @@
             } else {
                 printText("TARGET NOT FOUND IN IMMEDIATE VICINITY.");
             }
+        } else if (action === 'UNLOCK') {
+            if (target === 'SAFE') {
+                if (!safeLocked) {
+                    printText("SAFE IS ALREADY UNLOCKED.");
+                } else if (pin === '360') {
+                    safeLocked = false;
+                    printText("MECHANICAL TUMBLERS DISENGAGED. SAFE UNLOCKED.\nINSIDE YOU SEE: OVERRIDE_KEY. USE 'TAKE OVERRIDE_KEY' TO ACQUIRE.");
+                } else {
+                    printText("INCORRECT PIN. THE MECHANISM REMAINS LOCKED.");
+                }
+            } else {
+                printText("SPECIFY A VALID TARGET TO UNLOCK. (E.G., UNLOCK SAFE 123)");
+            }
         } else if (action === 'TAKE') {
             if (!target) printText("SPECIFY ITEM TO TAKE.");
-            else {
+            else if (target === 'OVERRIDE_KEY' && safeLocked) {
+                printText("YOU CANNOT TAKE THAT. THE SAFE IS STILL LOCKED.");
+            } else {
                 let found = false;
                 for (let key in environment) {
                     const index = environment[key].indexOf(target);
@@ -465,7 +620,7 @@
                     staticGainNode.gain.linearRampToValueAtTime(newVolume, audioCtx.currentTime + 1);
                 }
 
-                printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR. YOUR EXTRACTION WINDOW IS SHRINKING.`);
+                printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR.`);
             }
         } else if (action === 'JAM_FREQ') {
             if (jammerUsed) {
@@ -479,27 +634,48 @@
             if (signalBoosted === 0) {
                 printText("TRANSMISSION FAILED. STATIC INTERFERENCE TOO HIGH. HQ CANNOT HEAR YOU.");
             } else {
-                printText(`HQ: "We read you. Listen closely. We cannot pull you out yet. That bunker mainframe contains the V2 flight trajectories.\nExecute command HACK_ROOT to download them. We need those plans to win the war. Out."`);
+                printText(`HQ: "We read you. Listen closely. That bunker contains V2 trajectories. Execute command HACK_ROOT to download them.\nOnce downloaded, SEARCH the MAP for your grid. Use CALL_STRIKE [GRID] to order artillery on your own position to destroy the facility before escaping. Out."`);
             }
         } else if (action === 'HACK_ROOT') {
             if (inventory.includes('WAR_PLANS')) {
                 printText("ROOT DIRECTORY ALREADY COMPROMISED. SCHEMATICS SECURED.");
             } else if (!inventory.includes('DOSSIER')) {
-                printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. SEARCH THE ENVIRONMENT FOR INTEL.");
+                printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. SEARCH THE LOCKER FOR INTEL DOSSIER.");
             } else {
                 inventory.push('WAR_PLANS');
-                triangulationRisk += 25;
-                printText("DOSSIER PASSWORD ACCEPTED. INITIATING MAINFRAME OVERRIDE...\nSUCCESS. V2 SCHEMATICS DOWNLOADED.\nWARNING: MASSIVE DATA TRANSFER DETECTED BY ENEMY ROUTERS. TRACKING RISK SPIKED.");
+                traceActive = true;
+                promptSpan.classList.add('trace-warning');
+                promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
+                inputField.classList.add('trace-warning');
+                
+                printText("DOSSIER PASSWORD ACCEPTED. INITIATING MAINFRAME OVERRIDE...\nSUCCESS. V2 SCHEMATICS DOWNLOADED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED DOWNLOAD DETECTED. HOSTILE TRACE INITIATED. CALL THE STRIKE BEFORE THE TRACE COMPLETES.");
+            }
+        } else if (action === 'CALL_STRIKE') {
+            if (!target) {
+                printText("ERROR: TARGET GRID REQUIRED. (E.G., CALL_STRIKE 00-X)");
+            } else if (target !== '40-X') {
+                printText(`HQ: "Negative. Artillery reports ${target} is empty terrain. Verify your grid on the MAP."`);
+            } else if (!inventory.includes('WAR_PLANS')) {
+                printText(`HQ: "Negative. We cannot bomb that bunker until you have downloaded the WAR_PLANS. Secure the intel first."`);
+            } else {
+                strikeCalled = true;
+                isTyping = true;
+                inputField.disabled = true;
+                printText("COORDINATES CONFIRMED. ARTILLERY INBOUND. BRACE FOR IMPACT.", 40, triggerExplosion);
             }
         } else if (action === 'REQ_EXTRACT') {
             if (signalBoosted === 0) {
                 printText("TRANSMISSION FAILED. SIGNAL WEAK.");
-            } else if (!inventory.includes('COMPASS') || !inventory.includes('WAR_PLANS')) {
-                printText(`HQ: "NEGATIVE ON EXTRACTION. WE NEED THE V2 WAR_PLANS AND YOU NEED A COMPASS TO NAVIGATE TO THE LZ. ACCOMPLISH THE MISSION."`);
+            } else if (!strikeCalled) {
+                printText(`HQ: "NEGATIVE ON EXTRACTION. YOU MUST CALL THE STRIKE TO DESTROY THE FACILITY FIRST."`);
+            } else if (!inventory.includes('COMPASS') || !inventory.includes('OVERRIDE_KEY')) {
+                printText(`HQ: "NEGATIVE ON EXTRACTION. YOU NEED THE OVERRIDE_KEY AND A COMPASS TO NAVIGATE TO THE LZ. SECURE THEM."`);
             } else {
                 state = 'CALC_EXTRACT';
+                promptSpan.innerText = "HQ_LINK>";
+                
                 let timeWindow = 45 - (triangulationRisk * 0.35); 
-                printText(`HQ CONNECTED.\n"Plans confirmed. Brilliant work. Patrols are moving in fast. We are holding a C-47 transport at Sector Grid 70-X."\n"You are currently at Sector Grid 40-X. The distance is exactly 30 kilometers."\n"You must travel at a sprint pace of 10 kilometers per hour."\n"Due to enemy convergence, we can only keep the plane waiting for ${timeWindow.toFixed(1)} hours."\n\nCALCULATE: How many hours will it take you to reach the transport?\nENTER HOURS:`);
+                printText(`HQ CONNECTED.\n"Assets confirmed. The bunker is gone. We are holding a C-47 transport at Sector Grid 70-X."\n"You are currently at Sector Grid 40-X. The distance is exactly 30 kilometers."\n"You must travel at a sprint pace of 10 kilometers per hour."\n"Due to enemy convergence, we can only keep the plane waiting for ${timeWindow.toFixed(1)} hours."\n\nCALCULATE: How many hours will it take you to reach the transport?\nENTER HOURS:`);
             }
         } else {
             printText("COMMAND UNRECOGNIZED. FOCUS ON THE MISSION.");
@@ -521,7 +697,8 @@
                 });
             }
         } else {
-            printText("INCORRECT CALCULATION. TRY AGAIN:");
+            triangulationRisk += 5; 
+            printText("INCORRECT CALCULATION. TIME IS RUNNING OUT. TRY AGAIN:");
         }
     };
 
