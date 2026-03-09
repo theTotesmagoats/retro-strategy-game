@@ -47,12 +47,11 @@
         .r-bl { bottom: 12px; left: 12px; }
         .r-br { bottom: 12px; right: 12px; }
 
-        /* Optical Physics: Barrel Distortion & Chromatic Aberration */
         #screen {
             background: #030a03;
             width: 100%;
             height: 100%;
-            border-radius: 60px / 40px; /* Elliptical curve for barrel distortion */
+            border-radius: 60px / 40px; 
             padding: 35px;
             box-sizing: border-box;
             box-shadow: inset 0 0 120px rgba(0,0,0,1), 0 0 10px rgba(107,194,107,0.05);
@@ -62,14 +61,11 @@
             display: flex;
             flex-direction: column;
             color: #6bc26b; 
-            
-            /* Chromatic Aberration + Phosphor Bloom */
             text-shadow: 
                 -1.5px 0 1px rgba(255, 0, 0, 0.4), 
                 1.5px 0 1px rgba(0, 0, 255, 0.4), 
                 0 0 3px #6bc26b, 
                 0 0 8px rgba(107, 194, 107, 0.3); 
-                
             font-size: 1.8rem;
             letter-spacing: 2px;
             animation: flicker 0.12s infinite;
@@ -113,7 +109,6 @@
             pointer-events: none;
         }
 
-        /* Deep Vignette for Spherical Depth */
         #screen::before {
             content: " ";
             display: block;
@@ -289,10 +284,11 @@
             <span class="cmd-block" data-desc="Check mission parameters and tracking metrics.">STATUS</span>
             <span class="cmd-block" data-desc="Scan bracketed targets (e.g., SEARCH DESK).">SEARCH [X]</span>
             <span class="cmd-block" data-desc="Acquire physical assets.">TAKE [X]</span>
-            <span class="cmd-block" data-desc="Open locked assets (e.g., UNLOCK SAFE 123)">UNLOCK [X] [PIN]</span>
-            <span class="cmd-block" data-desc="Override root directory. Requires DOSSIER.">HACK_ROOT</span>
-            <span class="cmd-block" data-desc="Transmit naval coordinates. Requires UBOAT intel.">TX_NAVY</span>
-            <span class="cmd-block" data-desc="Authorize localized artillery. Needs V2 intel.">CALL_STRIKE [X]</span>
+            <span class="cmd-block" data-desc="Examine acquired inventory items (e.g., READ DOSSIER)">READ [X]</span>
+            <span class="cmd-block" data-desc="Repair hardware using inventory items.">FIX [X]</span>
+            <span class="cmd-block" data-desc="Override root directory. Requires password.">HACK_ROOT</span>
+            <span class="cmd-block" data-desc="Contact Allied Command for tactical guidance.">COMM_HQ</span>
+            <span class="cmd-block" data-desc="Authorize localized artillery.">CALL_STRIKE [X]</span>
             <span class="cmd-block" data-desc="Request extraction transport vector.">REQ_EXTRACT</span>
         </div>
     </div>
@@ -318,6 +314,8 @@
     let traceActive = false;
     let traceLimit = 15;
     let strikeCalled = false;
+    let radioFixed = false;
+    let navyContacted = false;
     
     let intrusionDefenseTimer = null;
     let currentDefenseHash = "";
@@ -326,11 +324,10 @@
     let inventory = [];
     let environment = {
         'DESK': ['COMPASS', 'MAP', 'BRASS_CASING'],
-        'LOCKER': ['DOSSIER', 'WOOL_SOCKS'],
+        'LOCKER': ['DOSSIER', 'VACUUM_TUBE', 'WOOL_SOCKS'],
         'SAFE': ['OVERRIDE_KEY', 'BLUEPRINT']
     };
     let safeLocked = true;
-    let navyContacted = false;
 
     let audioCtx;
     let staticGainNode;
@@ -356,9 +353,7 @@
         const bufferSize = audioCtx.sampleRate * 0.05; 
         keyNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const output = keyNoiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1; 
-        }
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1; 
     };
 
     const startStaticNoise = () => {
@@ -384,34 +379,34 @@
         noise.start();
     };
 
+    // WARM MECHANICAL AUDIO PROFILE
     const playClick = () => {
         if (!audioCtx || !keyNoiseBuffer) return;
         const t = audioCtx.currentTime;
 
+        // Warm Thud (Heavy keycap hitting the base)
+        const oscLow = audioCtx.createOscillator();
+        const gainLow = audioCtx.createGain();
+        oscLow.type = 'triangle';
+        oscLow.frequency.setValueAtTime(120, t); 
+        oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.04);
+        gainLow.gain.setValueAtTime(0.6, t);
+        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        oscLow.connect(gainLow).connect(audioCtx.destination);
+        oscLow.start(t);
+        oscLow.stop(t + 0.04);
+
+        // Muffled Friction (Mechanism rubbing)
         const noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = keyNoiseBuffer;
         const noiseFilter = audioCtx.createBiquadFilter();
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.value = 800 + (Math.random() * 400); 
-
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = 800; 
         const noiseGain = audioCtx.createGain();
-        noiseGain.gain.setValueAtTime(0.8, t);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.015);
-
+        noiseGain.gain.setValueAtTime(0.3, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
         noiseSource.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
         noiseSource.start(t);
-
-        const oscLow = audioCtx.createOscillator();
-        const gainLow = audioCtx.createGain();
-        oscLow.type = 'sine';
-        oscLow.frequency.setValueAtTime(250, t); 
-        oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.02);
-        gainLow.gain.setValueAtTime(0.5, t);
-        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
-        
-        oscLow.connect(gainLow).connect(audioCtx.destination);
-        oscLow.start(t);
-        oscLow.stop(t + 0.02);
     };
 
     const triggerExplosion = () => {
@@ -633,6 +628,12 @@
         outputDiv.innerHTML += `<span ${colorClass}>> ${cmd}</span><br>`;
         inputField.value = '';
 
+        // Handle specific states that intercept normal commands
+        if (state === 'HACK_AUTH') {
+            processHackAuth(cmd);
+            return;
+        }
+
         if (traceActive && action(cmd) !== 'CALL_STRIKE' && state !== 'CALC_EXTRACT') {
             traceLimit--;
             promptSpan.innerText = `[TRACE: ${traceLimit}] ${state === 'MAINFRAME' ? 'ROOT@BERLIN>' : 'HQ_LINK>'}`;
@@ -727,6 +728,23 @@
         }
     };
 
+    const processHackAuth = (cmd) => {
+        if (cmd === 'VALKYRIE') {
+            state = 'MAINFRAME';
+            traceActive = true;
+            promptSpan.classList.add('trace-warning');
+            promptSpan.innerText = `[TRACE: ${traceLimit}] ROOT@BERLIN>`;
+            inputField.classList.add('trace-warning');
+            printText("ADMINISTRATOR PASSWORD ACCEPTED. MAINFRAME INFILTRATED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED ACCESS DETECTED. HOSTILE TRACE INITIATED.\nTYPE 'HELP' FOR DIGITAL COMMANDS.");
+        } else if (cmd === 'ABORT') {
+            state = 'CONNECTED';
+            promptSpan.innerText = "HQ_LINK>";
+            printText("HACK ABORTED. RETURNED TO LOCAL SHELL.");
+        } else {
+            printText("ACCESS DENIED. INCORRECT PASSWORD. TYPE 'ABORT' TO EXIT OR TRY AGAIN.\nPASSWORD>");
+        }
+    };
+
     const processCommand = (cmd) => {
         const args = cmd.split(' ');
         const action = args[0];
@@ -739,7 +757,7 @@
         } else if (action === 'OBSERVE') {
             printText("YOU ARE IN A DAMP CONCRETE BUNKER.\nTO YOUR LEFT IS A RUSTED METAL [LOCKER].\nIN THE CENTER IS A WOODEN COMMAND [DESK].\nA HEAVY STEEL [SAFE] IS RECESSED INTO THE REAR WALL.\nTHE FLOOR IS LITTERED WITH DEBRIS.");
         } else if (action === 'STATUS') {
-            printText(`MISSION PARAMETERS:\nOPERATIVE INFILTRATED BEHIND ENEMY LINES.\nLOCAL RADIO OPERATOR NEUTRALIZED.\nOBJECTIVE: INFILTRATE COMMUNICATION MAINFRAME, SECURE INTEL, AND SIGNAL ALLIED COMMAND FOR IMMEDIATE EXTRACTION.\n\nSYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}`);
+            printText(`MISSION PARAMETERS:\nOPERATIVE INFILTRATED BEHIND ENEMY LINES.\nOBJECTIVE: REPAIR RADIO, INFILTRATE COMMUNICATION MAINFRAME, SECURE INTEL, AND EXTRACT.\n\nSYSTEM: NOMINAL.\nRADIO LINK: ${radioFixed ? 'ONLINE' : 'OFFLINE (HARDWARE FAULT)'}\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}`);
         } else if (action === 'SEARCH') {
             if (!target) {
                 printText("SPECIFY TARGET: SEARCH DESK, SEARCH LOCKER, SEARCH SAFE, OR SEARCH MAP.");
@@ -758,6 +776,33 @@
             } else {
                 printText("TARGET NOT FOUND IN IMMEDIATE VICINITY.");
             }
+        } else if (action === 'READ') {
+             if (!target) {
+                printText("SPECIFY ITEM TO READ.");
+             } else if (!inventory.includes(target)) {
+                printText(`YOU DO NOT POSSESS ${target}.`);
+             } else if (target === 'DOSSIER') {
+                printText("CLASSIFIED INTEL DOSSIER.\nPAGE 1: MAINFRAME PROTOCOLS.\nADMINISTRATOR PASSWORD IDENTIFIED: VALKYRIE.");
+             } else if (target === 'MAP') {
+                printText("TOPOGRAPHICAL MAP. YOU ARE CURRENTLY LOCATED AT SECTOR VECTOR: 40-X.");
+             } else {
+                printText(`THERE IS NOTHING TO READ ON ${target}.`);
+             }
+        } else if (action === 'FIX') {
+             if (!target) {
+                 printText("SPECIFY COMPONENT TO FIX.");
+             } else if (target === 'RADIO') {
+                 if (radioFixed) {
+                     printText("RADIO IS ALREADY OPERATIONAL.");
+                 } else if (inventory.includes('VACUUM_TUBE')) {
+                     radioFixed = true;
+                     printText("VACUUM_TUBE INSTALLED. CIRCUIT COMPLETED. RADIO TELEMETRY RESTORED.\nYOU MAY NOW COMMUNICATE WITH COMMAND (COMM_HQ).");
+                 } else {
+                     printText("CANNOT FIX RADIO. A CRITICAL COMPONENT IS MISSING. CHECK YOUR INVENTORY.");
+                 }
+             } else {
+                 printText("TARGET CANNOT BE FIXED.");
+             }
         } else if (action === 'UNLOCK') {
             if (target === 'SAFE') {
                 if (!safeLocked) {
@@ -793,22 +838,44 @@
             if (inventory.length === 0) printText("INVENTORY EMPTY.");
             else printText(`CURRENT INVENTORY: ${inventory.join(', ')}.`);
         } else if (action === 'HACK_ROOT') {
-            if (!inventory.includes('DOSSIER')) {
-                printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. FIND THE INTEL DOSSIER.");
+            state = 'HACK_AUTH';
+            promptSpan.innerText = "PASSWORD>";
+            printText("INITIATING ROOT OVERRIDE...\nACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED.\n(HINT: READ THE DOSSIER)\nENTER PASSWORD:");
+        } else if (action === 'BOOST_SIG') {
+            if (signalBoosted >= 3) {
+                printText("SIGNAL AT MAXIMUM THRESHOLD. EQUIPMENT OVERHEATING.");
             } else {
-                state = 'MAINFRAME';
-                traceActive = true;
-                promptSpan.classList.add('trace-warning');
-                promptSpan.innerText = `[TRACE: ${traceLimit}] ROOT@BERLIN>`;
-                inputField.classList.add('trace-warning');
+                signalBoosted++;
+                triangulationRisk += 30;
                 
-                printText("DOSSIER PASSWORD ACCEPTED. MAINFRAME INFILTRATED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED ACCESS DETECTED. HOSTILE TRACE INITIATED.\nTYPE 'HELP' FOR DIGITAL COMMANDS.");
+                if (staticGainNode) {
+                    let newVolume = 0.005 + (signalBoosted * 0.15);
+                    staticGainNode.gain.linearRampToValueAtTime(newVolume, audioCtx.currentTime + 1);
+                }
+                printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR.`);
+            }
+        } else if (action === 'COMM_HQ') {
+            if (!radioFixed) {
+                printText("TRANSMISSION FAILED. HARDWARE FAULT DETECTED IN RADIO UNIT. REPAIR REQUIRED.");
+            } else if (signalBoosted === 0) {
+                printText("HQ: *Static* ...barely reading you Vanguard... too much interference... boost your signal...");
+            } else {
+                // Dynamic NPC Logic
+                if (inventory.includes('WAR_PLANS') && !strikeCalled) {
+                     printText(`HQ: "Ah, Vanguard. Fascinating. You actually cracked the mainframe. Now for the fun part. Read the local map, find your coordinates, and use CALL_STRIKE to drop artillery on your own position. I know it sounds counter-intuitive, but it's the only way to destroy their local routers and sever the network trace. I'll send a transport once the dust settles."`);
+                } else if (inventory.includes('UBOAT_COORD') && !navyContacted) {
+                     printText(`HQ: "Naval intel? Brilliant. An artillery strike is too loud for that. Use TX_NAVY to transmit those coordinates directly to the Admiralty. They'll send a submarine for you."`);
+                } else if (strikeCalled || navyContacted) {
+                     printText(`HQ: "The extraction transport is waiting. Secure the OVERRIDE_KEY from the safe, grab your COMPASS, and request extraction (REQ_EXTRACT). It's simple logic from here."`);
+                } else {
+                     printText(`HQ: "Vanguard. You're alive. Statistically improbable, but a pleasant anomaly. Listen, you are sitting on the V2 trajectories. Don't call me until you've cracked their mainframe. Read the dossier to get the password, then hack the root. It's a simple logical sequence. Try not to blow yourself up before you get the data."`);
+                }
             }
         } else if (action === 'CALL_STRIKE') {
             if (!target) {
                 printText("ERROR: TARGET GRID REQUIRED. (E.G., CALL_STRIKE 00-X)");
             } else if (target !== '40-X') {
-                printText(`HQ: "Negative. Artillery reports ${target} is empty terrain. Verify your grid on the MAP."`);
+                printText(`HQ: "Negative. Artillery reports ${target} is empty terrain. Read your map."`);
             } else if (!inventory.includes('WAR_PLANS')) {
                 printText(`HQ: "Negative. We cannot bomb that bunker until you have downloaded the V2 WAR_PLANS from the mainframe."`);
             } else {
@@ -841,7 +908,7 @@
                 }
             } else if (inventory.includes('UBOAT_COORD')) {
                 if (!navyContacted) {
-                    printText(`HQ: "NEGATIVE. YOU SECURED THE NAVAL INTEL, BUT YOU MUST TRANSMIT IT (TX_NAVY) TO THE FLEET BEFORE ESCAPING."`);
+                    printText(`HQ: "NEGATIVE. YOU SECURED THE NAVAL INTEL, BUT YOU MUST TRANSMIT IT TO THE FLEET BEFORE ESCAPING."`);
                 } else {
                     state = 'CALC_EXTRACT';
                     promptSpan.innerText = "HQ_LINK>";
