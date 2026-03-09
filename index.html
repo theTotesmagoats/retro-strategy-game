@@ -288,7 +288,7 @@
             <span class="cmd-block" data-desc="Repair hardware using inventory items.">FIX [X]</span>
             <span class="cmd-block" data-desc="Override root directory. Requires password.">HACK_ROOT</span>
             <span class="cmd-block" data-desc="Contact Allied Command for tactical guidance.">COMM_HQ</span>
-            <span class="cmd-block" data-desc="Authorize localized artillery.">CALL_STRIKE [X]</span>
+            <span class="cmd-block" data-desc="Scramble trace. Requires Jammer.">JAM_FREQ</span>
             <span class="cmd-block" data-desc="Request extraction transport vector.">REQ_EXTRACT</span>
         </div>
     </div>
@@ -316,10 +316,12 @@
     let strikeCalled = false;
     let radioFixed = false;
     let navyContacted = false;
+    let jammerUsed = false;
     
     let intrusionDefenseTimer = null;
     let currentDefenseHash = "";
     let pendingDownload = "";
+    let rdfDefenseTimer = null;
     
     let inventory = [];
     let environment = {
@@ -379,46 +381,60 @@
         noise.start();
     };
 
-    const playClick = () => {
+    // DOUBLE-TRANSIENT ACOUSTIC ENGINE
+    const playKeyDown = () => {
         if (!audioCtx || !keyNoiseBuffer) return;
         const t = audioCtx.currentTime;
 
-        // Layer 1: The Friction (Bandpass noise for mid-range plastic clack)
+        // Deep bottom-out clack
+        const oscLow = audioCtx.createOscillator();
+        const gainLow = audioCtx.createGain();
+        oscLow.type = 'triangle';
+        oscLow.frequency.setValueAtTime(150, t); 
+        oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.03);
+        gainLow.gain.setValueAtTime(0.5, t);
+        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        oscLow.connect(gainLow).connect(audioCtx.destination);
+        oscLow.start(t);
+        oscLow.stop(t + 0.03);
+
+        // Plastic friction
         const noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = keyNoiseBuffer;
         const noiseFilter = audioCtx.createBiquadFilter();
         noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 1000 + (Math.random() * 200); 
+        noiseFilter.frequency.value = 800 + (Math.random() * 200); 
         const noiseGain = audioCtx.createGain();
-        noiseGain.gain.setValueAtTime(0.6, t);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
+        noiseGain.gain.setValueAtTime(0.4, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.015);
         noiseSource.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
         noiseSource.start(t);
+    };
 
-        // Layer 2: The Actuation Snap (Subtle mid-high square wave)
+    const playKeyUp = () => {
+        if (!audioCtx || !keyNoiseBuffer) return;
+        const t = audioCtx.currentTime;
+
+        // Higher, lighter spring reset snap
         const oscHigh = audioCtx.createOscillator();
         const gainHigh = audioCtx.createGain();
-        oscHigh.type = 'square';
-        oscHigh.frequency.setValueAtTime(600, t); 
+        oscHigh.type = 'sine';
+        oscHigh.frequency.setValueAtTime(400, t); 
         oscHigh.frequency.exponentialRampToValueAtTime(100, t + 0.015);
         gainHigh.gain.setValueAtTime(0.15, t);
         gainHigh.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
         oscHigh.connect(gainHigh).connect(audioCtx.destination);
         oscHigh.start(t);
         oscHigh.stop(t + 0.015);
-
-        // Layer 3: The Base Impact (Warm mid-low triangle wave)
-        const oscLow = audioCtx.createOscillator();
-        const gainLow = audioCtx.createGain();
-        oscLow.type = 'triangle';
-        oscLow.frequency.setValueAtTime(250, t); 
-        oscLow.frequency.exponentialRampToValueAtTime(60, t + 0.035);
-        gainLow.gain.setValueAtTime(0.4, t);
-        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
-        oscLow.connect(gainLow).connect(audioCtx.destination);
-        oscLow.start(t);
-        oscLow.stop(t + 0.035);
     };
+
+    // Attach dual event listeners for physical typing
+    inputField.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== 'Shift') playKeyDown();
+    });
+    inputField.addEventListener('keyup', (e) => {
+        if (e.key !== 'Enter' && e.key !== 'Shift') playKeyUp();
+    });
 
     const triggerExplosion = () => {
         if (!audioCtx) return;
@@ -503,6 +519,8 @@
         });
     };
 
+    // --- CYBER WARFARE / DIGITAL INTRUSION ---
+
     const generateHash = () => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         let hash = "";
@@ -580,12 +598,45 @@
         }
     };
 
-    inputField.addEventListener('input', () => {
-        if (inputField.value.trim() !== '') {
-            initAudio(); 
-            playClick();
+    // --- KINETIC SCRAMBLE (GESTAPO RDF RAID) ---
+
+    const triggerRDFIntercept = () => {
+        previousState = state;
+        state = 'RDF_SCRAMBLE';
+        
+        screen.classList.add('intrusion-active');
+        promptSpan.innerText = "CRITICAL_WARN>";
+        promptSpan.classList.add('trace-warning');
+        
+        printText("*** GESTAPO RDF TRIANGULATION LOCKED ***\nEXCESSIVE RADIO AMPLIFICATION DETECTED. HEAVY INFANTRY DISPATCHED TO YOUR COORDINATES.\nYOU HAVE 15 SECONDS TO SCRAMBLE THE FREQUENCY OR BE OVERRUN.\nREQUIREMENT: DEPLOY JAM_FREQ COMMAND NOW.", 30, () => {
+            rdfDefenseTimer = setTimeout(failRDFIntercept, 15000);
+        });
+    };
+
+    const failRDFIntercept = () => {
+        screen.classList.remove('intrusion-active');
+        inputField.style.display = 'none';
+        printText("\n*** DOOR BREACH DETECTED. GESTAPO PATROL HAS SECURED THE ROOM. ***\nMISSION FAILED. YOU HAVE BEEN CAPTURED.", 50);
+    };
+
+    const resolveRDFIntercept = (cmd) => {
+        if (cmd === 'JAM_FREQ') {
+            clearTimeout(rdfDefenseTimer);
+            screen.classList.remove('intrusion-active');
+            promptSpan.classList.remove('trace-warning');
+            promptSpan.innerText = previousState === 'MAINFRAME' ? `[TRACE: ${traceLimit}] ROOT@BERLIN>` : "HQ_LINK>";
+            
+            jammerUsed = true;
+            triangulationRisk = Math.max(0, triangulationRisk - 40);
+            state = previousState;
+            
+            printText("ELECTRONIC WARFARE DEPLOYED. BROADBAND WHITE NOISE TRANSMITTED.\nGESTAPO RDF LOCK SEVERED. PATROLS DIVERTED.\nTRIANGULATION RISK REDUCED. RETURNING TO PREVIOUS SHELL.");
+        } else {
+            printText("INVALID COMMAND. YOU MUST SCRAMBLE THE SIGNAL (JAM_FREQ) IMMEDIATELY.");
         }
-    });
+    };
+
+    // --- PRINT ENGINE ---
 
     const printText = (text, speed = 30, callback = null) => {
         isTyping = true;
@@ -603,13 +654,16 @@
         }
 
         const interval = setInterval(() => {
-            if(state === 'INTRUSION_DEFENSE' && !text.includes('SECURITY BREACH')) {
+            if((state === 'INTRUSION_DEFENSE' || state === 'RDF_SCRAMBLE') && !text.includes('SECURITY BREACH') && !text.includes('GESTAPO RDF')) {
                 clearInterval(interval);
                 return;
             }
 
             outputDiv.innerHTML += text.charAt(i);
-            if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playClick();
+            
+            // Play mechanical downstroke for programmatic printing
+            if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playKeyDown();
+            
             outputDiv.scrollTop = outputDiv.scrollHeight;
             i++;
             if (i >= text.length) {
@@ -632,6 +686,13 @@
             outputDiv.innerHTML += `<span style="color:#FFF">> ${cmd}</span><br>`;
             inputField.value = '';
             resolveIntrusion(cmd);
+            return;
+        }
+
+        if (state === 'RDF_SCRAMBLE') {
+            outputDiv.innerHTML += `<span style="color:#FFF">> ${cmd}</span><br>`;
+            inputField.value = '';
+            resolveRDFIntercept(cmd);
             return;
         }
         
@@ -862,7 +923,21 @@
                     let newVolume = 0.005 + (signalBoosted * 0.15);
                     staticGainNode.gain.linearRampToValueAtTime(newVolume, audioCtx.currentTime + 1);
                 }
+                
                 printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR.`);
+                
+                // Trigger the Kinetic Scramble if they boost too high without jamming
+                if (triangulationRisk >= 60 && !jammerUsed) {
+                    setTimeout(triggerRDFIntercept, 2000);
+                }
+            }
+        } else if (action === 'JAM_FREQ') {
+            if (jammerUsed) {
+                printText("FREQUENCY JAMMER ALREADY EXPENDED. HARDWARE BURNT OUT.");
+            } else {
+                jammerUsed = true;
+                triangulationRisk = Math.max(0, triangulationRisk - 40);
+                printText("ELECTRONIC WARFARE DEPLOYED. BROADBAND WHITE NOISE TRANSMITTED. ENEMY DIRECTION FINDING CONFOUNDED.\nTRIANGULATION RISK SEVERELY REDUCED.");
             }
         } else if (action === 'COMM_HQ') {
             if (!radioFixed) {
@@ -969,7 +1044,7 @@
 
     printText("SYSTEM AKTIVIERT. TERMINAL POWERED ON.\nBITTE CHOOSE YOUR PROTOCOL:\n[1] NORMAL OP (STANDARD VERSCHLÜSSELUNG)\n[2] TRAINING OP (ASSISTED ENTSCHLÜSSELUNG)\nENTER EINGABE:");
 
-    inputField.addEventListener('keypress', function (e) {
+    inputField.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
             handleInput(inputField.value);
         }
