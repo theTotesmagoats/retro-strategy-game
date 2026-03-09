@@ -47,7 +47,7 @@
         .r-bl { bottom: 12px; left: 12px; }
         .r-br { bottom: 12px; right: 12px; }
 
-        /* Hardware Power Switch */
+        /* Hardware Power Switch - Faded Retro Orange */
         #hardware-panel {
             position: absolute;
             bottom: 15px;
@@ -80,10 +80,10 @@
         #power-button {
             width: 36px;
             height: 36px;
-            background: #7a1515; 
+            background: #bd632f; /* Faded 80s Orange */
             border-radius: 50%;
-            box-shadow: inset 2px 2px 4px #b33, inset -2px -2px 4px #300, 2px 2px 5px rgba(0,0,0,0.8);
-            color: #4a0505; 
+            box-shadow: inset 2px 2px 4px #e08548, inset -2px -2px 4px #82401a, 2px 2px 5px rgba(0,0,0,0.8);
+            color: #52270f; 
             font-family: sans-serif;
             font-size: 18px;
             display: flex;
@@ -91,13 +91,13 @@
             align-items: center;
             cursor: pointer;
             transition: all 0.1s;
-            text-shadow: -1px -1px 1px rgba(0,0,0,0.6), 1px 1px 1px rgba(255,100,100,0.3);
+            text-shadow: -1px -1px 1px rgba(0,0,0,0.5), 1px 1px 1px rgba(255, 170, 100, 0.4);
         }
 
         #power-button.active {
-            box-shadow: inset 2px 2px 6px #300, inset -2px -2px 6px #b33, 0 0 2px #000;
+            box-shadow: inset 2px 2px 6px #82401a, inset -2px -2px 6px #e08548, 0 0 2px #000;
             transform: scale(0.95);
-            color: #8b0000;
+            color: #733714;
         }
 
         #screen {
@@ -411,7 +411,6 @@
         "YOU TYPE LIKE A TERRIFIED CHILD. SURRENDER."
     ];
 
-    // Hardware Boot Sequence
     powerButton.addEventListener('click', () => {
         if (state !== 'OFF') return; 
         
@@ -477,7 +476,6 @@
         noise.start();
     };
 
-    // ACOUSTIC ENGINE (Decoupled Volume Logic)
     const playKeyDown = (isSystem = false) => {
         if (!audioCtx || !keyNoiseBuffer) return;
         const t = audioCtx.currentTime;
@@ -529,6 +527,7 @@
 
     inputField.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
+            e.preventDefault(); 
             playKeyDown(false);
             handleInput(inputField.value);
         } else if (e.key !== 'Shift') {
@@ -623,8 +622,6 @@
         });
     };
 
-    // --- CYBER WARFARE / DIGITAL INTRUSION ---
-
     const generateHash = () => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         let hash = "";
@@ -702,8 +699,6 @@
         }
     };
 
-    // --- KINETIC SCRAMBLE (GESTAPO RDF RAID) ---
-
     const triggerRDFIntercept = () => {
         previousState = state;
         state = 'RDF_SCRAMBLE';
@@ -739,8 +734,6 @@
             printText("INVALID COMMAND. YOU MUST SCRAMBLE THE SIGNAL (JAM_FREQ) IMMEDIATELY.");
         }
     };
-
-    // --- PRINT ENGINE ---
 
     const printText = (text, speed = 30, callback = null) => {
         isTyping = true;
