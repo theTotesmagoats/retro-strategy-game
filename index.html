@@ -47,36 +47,44 @@
         .r-bl { bottom: 12px; left: 12px; }
         .r-br { bottom: 12px; right: 12px; }
 
+        /* Optical Physics: Barrel Distortion & Chromatic Aberration */
         #screen {
-            background: radial-gradient(circle at center, #051505 0%, #000000 90%);
+            background: #030a03;
             width: 100%;
             height: 100%;
-            border-radius: 25px; 
-            padding: 30px;
+            border-radius: 60px / 40px; /* Elliptical curve for barrel distortion */
+            padding: 35px;
             box-sizing: border-box;
-            box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(107,194,107,0.05);
+            box-shadow: inset 0 0 120px rgba(0,0,0,1), 0 0 10px rgba(107,194,107,0.05);
             border: 12px solid #050505;
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             color: #6bc26b; 
-            text-shadow: 0 0 2px #6bc26b, 0 0 6px rgba(107,194,107,0.4); 
+            
+            /* Chromatic Aberration + Phosphor Bloom */
+            text-shadow: 
+                -1.5px 0 1px rgba(255, 0, 0, 0.4), 
+                1.5px 0 1px rgba(0, 0, 255, 0.4), 
+                0 0 3px #6bc26b, 
+                0 0 8px rgba(107, 194, 107, 0.3); 
+                
             font-size: 1.8rem;
             letter-spacing: 2px;
-            animation: flicker 0.15s infinite;
+            animation: flicker 0.12s infinite;
             transition: background 0.5s, opacity 0.5s;
         }
 
         @keyframes intrusionPulse {
-            0% { box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
-            50% { box-shadow: inset 0 0 80px rgba(150, 20, 20, 0.3), 0 0 30px rgba(217, 83, 79, 0.5); border-color: #4a1111; }
-            100% { box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
+            0% { box-shadow: inset 0 0 120px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
+            50% { box-shadow: inset 0 0 120px rgba(150, 20, 20, 0.5), 0 0 30px rgba(217, 83, 79, 0.5); border-color: #4a1111; }
+            100% { box-shadow: inset 0 0 120px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
         }
         .intrusion-active {
             animation: intrusionPulse 1s infinite !important;
             color: #d9534f !important;
-            text-shadow: 0 0 5px #d9534f !important;
+            text-shadow: -1.5px 0 1px rgba(0, 0, 255, 0.4), 1.5px 0 1px rgba(255, 255, 0, 0.4), 0 0 4px #d9534f !important;
         }
 
         .power-loss {
@@ -89,9 +97,9 @@
         }
 
         @keyframes flicker {
-            0% { opacity: 0.98; }
+            0% { opacity: 0.97; }
             50% { opacity: 1; }
-            100% { opacity: 0.99; }
+            100% { opacity: 0.98; }
         }
 
         #screen::after {
@@ -99,21 +107,21 @@
             display: block;
             position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%);
             z-index: 4;
             background-size: 100% 4px;
             pointer-events: none;
         }
 
+        /* Deep Vignette for Spherical Depth */
         #screen::before {
             content: " ";
             display: block;
             position: absolute;
-            top: -10%; left: -10%; width: 120%; height: 120%;
-            background: radial-gradient(ellipse at top left, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 50%);
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.6) 85%, rgba(0,0,0,1) 100%);
             z-index: 5;
             pointer-events: none;
-            border-radius: 50%;
         }
 
         #output {
@@ -136,7 +144,7 @@
         }
 
         #prompt { margin-right: 15px; transition: color 0.3s; }
-        .trace-warning { color: #d9534f; text-shadow: 0 0 4px #d9534f; } 
+        .trace-warning { color: #d9534f; text-shadow: -1.5px 0 1px rgba(0,0,255,0.4), 0 0 4px #d9534f; } 
         
         .cursor-blink {
             animation: blinker 1s linear infinite;
@@ -202,6 +210,7 @@
             pointer-events: none;
             font-size: 1.2rem;
             text-align: center;
+            text-shadow: none;
         }
 
         .cipher-hint {
@@ -209,6 +218,7 @@
             border-bottom: 2px dotted #6bc26b;
             position: relative;
             color: #e6e6b8; 
+            text-shadow: none;
         }
         
         .cipher-hint:hover::after {
@@ -229,6 +239,7 @@
             color: #6bc26b;
             line-height: 1.2;
             text-align: left;
+            text-shadow: none;
         }
 
         .hash-hint {
@@ -236,6 +247,7 @@
             border-bottom: 2px dotted #d9534f;
             position: relative;
             color: #ffcccc; 
+            text-shadow: none;
         }
 
         .hash-hint:hover::after {
@@ -255,6 +267,7 @@
             color: #d9534f;
             line-height: 1.2;
             font-weight: bold;
+            text-shadow: none;
         }
     </style>
 </head>
@@ -273,7 +286,7 @@
         </div>
         <div id="command-bar">
             <span class="cmd-block" data-desc="Survey immediate surroundings for targets.">OBSERVE</span>
-            <span class="cmd-block" data-desc="Check system and tracking risk metrics.">STATUS</span>
+            <span class="cmd-block" data-desc="Check mission parameters and tracking metrics.">STATUS</span>
             <span class="cmd-block" data-desc="Scan bracketed targets (e.g., SEARCH DESK).">SEARCH [X]</span>
             <span class="cmd-block" data-desc="Acquire physical assets.">TAKE [X]</span>
             <span class="cmd-block" data-desc="Open locked assets (e.g., UNLOCK SAFE 123)">UNLOCK [X] [PIN]</span>
@@ -306,7 +319,6 @@
     let traceLimit = 15;
     let strikeCalled = false;
     
-    // Intrusion & Mainframe Variables
     let intrusionDefenseTimer = null;
     let currentDefenseHash = "";
     let pendingDownload = "";
@@ -318,8 +330,6 @@
         'SAFE': ['OVERRIDE_KEY', 'BLUEPRINT']
     };
     let safeLocked = true;
-
-    // Submarine extraction variables
     let navyContacted = false;
 
     let audioCtx;
@@ -487,8 +497,6 @@
         });
     };
 
-    // --- CYBER WARFARE / INTRUSION MECHANICS ---
-
     const generateHash = () => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         let hash = "";
@@ -505,7 +513,6 @@
         isTyping = true;
         inputField.disabled = true;
 
-        // Visual Glitch / Screen Overwrite Attack
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>[]{}";
         let glitchCount = 0;
         
@@ -552,7 +559,7 @@
         promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
         
         if (cmd === currentDefenseHash) {
-            state = 'CONNECTED'; // Drop them back to the physical room with their prize
+            state = 'CONNECTED'; 
             
             let itemName = "";
             if (pendingDownload === 'NODE_V2_TRAJ') itemName = 'WAR_PLANS';
@@ -566,8 +573,6 @@
             failIntrusion();
         }
     };
-
-    // --- END CYBER WARFARE ---
 
     inputField.addEventListener('input', () => {
         if (inputField.value.trim() !== '') {
@@ -592,6 +597,11 @@
         }
 
         const interval = setInterval(() => {
+            if(state === 'INTRUSION_DEFENSE' && !text.includes('SECURITY BREACH')) {
+                clearInterval(interval);
+                return;
+            }
+
             outputDiv.innerHTML += text.charAt(i);
             if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playClick();
             outputDiv.scrollTop = outputDiv.scrollHeight;
@@ -729,7 +739,7 @@
         } else if (action === 'OBSERVE') {
             printText("YOU ARE IN A DAMP CONCRETE BUNKER.\nTO YOUR LEFT IS A RUSTED METAL [LOCKER].\nIN THE CENTER IS A WOODEN COMMAND [DESK].\nA HEAVY STEEL [SAFE] IS RECESSED INTO THE REAR WALL.\nTHE FLOOR IS LITTERED WITH DEBRIS.");
         } else if (action === 'STATUS') {
-            printText(`SYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}`);
+            printText(`MISSION PARAMETERS:\nOPERATIVE INFILTRATED BEHIND ENEMY LINES.\nLOCAL RADIO OPERATOR NEUTRALIZED.\nOBJECTIVE: INFILTRATE COMMUNICATION MAINFRAME, SECURE INTEL, AND SIGNAL ALLIED COMMAND FOR IMMEDIATE EXTRACTION.\n\nSYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}`);
         } else if (action === 'SEARCH') {
             if (!target) {
                 printText("SPECIFY TARGET: SEARCH DESK, SEARCH LOCKER, SEARCH SAFE, OR SEARCH MAP.");
