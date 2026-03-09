@@ -68,7 +68,6 @@
             transition: background 0.5s, opacity 0.5s;
         }
 
-        /* Active Intrusion State */
         @keyframes intrusionPulse {
             0% { box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
             50% { box-shadow: inset 0 0 80px rgba(150, 20, 20, 0.3), 0 0 30px rgba(217, 83, 79, 0.5); border-color: #4a1111; }
@@ -231,6 +230,32 @@
             line-height: 1.2;
             text-align: left;
         }
+
+        .hash-hint {
+            cursor: help;
+            border-bottom: 2px dotted #d9534f;
+            position: relative;
+            color: #ffcccc; 
+        }
+
+        .hash-hint:hover::after {
+            content: "SYSTEM ASSIST: TYPE '" attr(data-hash) "' TO REPEL ATTACK";
+            position: absolute;
+            bottom: 125%; 
+            left: 50%;
+            transform: translateX(-50%); 
+            width: max-content; 
+            background: #2a0505;
+            border: 2px solid #d9534f;
+            padding: 15px;
+            white-space: pre-wrap; 
+            z-index: 10;
+            box-shadow: 0 0 15px #000;
+            pointer-events: none;
+            color: #d9534f;
+            line-height: 1.2;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -252,11 +277,9 @@
             <span class="cmd-block" data-desc="Scan bracketed targets (e.g., SEARCH DESK).">SEARCH [X]</span>
             <span class="cmd-block" data-desc="Acquire physical assets.">TAKE [X]</span>
             <span class="cmd-block" data-desc="Open locked assets (e.g., UNLOCK SAFE 123)">UNLOCK [X] [PIN]</span>
-            <span class="cmd-block" data-desc="Amplify radio output. High detection risk.">BOOST_SIG</span>
-            <span class="cmd-block" data-desc="Single-use. Confounds enemy Direction Finding.">JAM_FREQ</span>
-            <span class="cmd-block" data-desc="Contact Allied Command for mission parameters.">COMM_HQ</span>
             <span class="cmd-block" data-desc="Override root directory. Requires DOSSIER.">HACK_ROOT</span>
-            <span class="cmd-block" data-desc="Authorize localized artillery. Needs grid vector.">CALL_STRIKE [X]</span>
+            <span class="cmd-block" data-desc="Transmit naval coordinates. Requires UBOAT intel.">TX_NAVY</span>
+            <span class="cmd-block" data-desc="Authorize localized artillery. Needs V2 intel.">CALL_STRIKE [X]</span>
             <span class="cmd-block" data-desc="Request extraction transport vector.">REQ_EXTRACT</span>
         </div>
     </div>
@@ -278,28 +301,37 @@
     let alertLevel = 0;
     let signalBoosted = 0; 
     let triangulationRisk = 0;
-    let jammerUsed = false;
     
     let traceActive = false;
     let traceLimit = 15;
     let strikeCalled = false;
     
-    // Intrusion Variables
-    let intrusionLoopId = null;
+    // Intrusion & Mainframe Variables
     let intrusionDefenseTimer = null;
     let currentDefenseHash = "";
+    let pendingDownload = "";
     
     let inventory = [];
     let environment = {
-        'DESK': ['COMPASS', 'MAP', 'BRASS_CASING', 'STALE_BREAD'],
-        'LOCKER': ['DOSSIER', 'WOOL_SOCKS', 'LUNCHBOX'],
+        'DESK': ['COMPASS', 'MAP', 'BRASS_CASING'],
+        'LOCKER': ['DOSSIER', 'WOOL_SOCKS'],
         'SAFE': ['OVERRIDE_KEY', 'BLUEPRINT']
     };
     let safeLocked = true;
 
+    // Submarine extraction variables
+    let navyContacted = false;
+
     let audioCtx;
     let staticGainNode;
     let keyNoiseBuffer;
+
+    const wolfQuotes = [
+        "ACHTUNG. I SEE YOUR CONNECTION, LITTLE MOUSE.",
+        "YOUR FIREWALL IS PAPER. I AM TEARING IT DOWN.",
+        "BERLIN COMMAND HAS YOUR TRACE. DIE GESTAPO KOMMT.",
+        "YOU TYPE LIKE A TERRIFIED CHILD. SURRENDER."
+    ];
 
     const initAudio = () => {
         if (!audioCtx) {
@@ -311,11 +343,11 @@
     };
 
     const createKeyNoiseBuffer = () => {
-        const bufferSize = audioCtx.sampleRate * 0.05; // 50ms buffer
+        const bufferSize = audioCtx.sampleRate * 0.05; 
         keyNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const output = keyNoiseBuffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1; // pure white noise
+            output[i] = Math.random() * 2 - 1; 
         }
     };
 
@@ -346,13 +378,10 @@
         if (!audioCtx || !keyNoiseBuffer) return;
         const t = audioCtx.currentTime;
 
-        // The "Clack" (Filtered white noise simulates plastic/metal friction)
         const noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = keyNoiseBuffer;
-        
         const noiseFilter = audioCtx.createBiquadFilter();
         noiseFilter.type = 'highpass';
-        // Randomize pitch slightly for different keys
         noiseFilter.frequency.value = 800 + (Math.random() * 400); 
 
         const noiseGain = audioCtx.createGain();
@@ -362,7 +391,6 @@
         noiseSource.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
         noiseSource.start(t);
 
-        // The "Thud" (Resonant impact)
         const oscLow = audioCtx.createOscillator();
         const gainLow = audioCtx.createGain();
         oscLow.type = 'sine';
@@ -426,8 +454,6 @@
     };
 
     const powerDown = () => {
-        // Stop Intrusion Logic if it's running
-        clearTimeout(intrusionLoopId);
         clearTimeout(intrusionDefenseTimer);
         screen.classList.remove('intrusion-active');
 
@@ -470,28 +496,41 @@
         return hash;
     };
 
-    const startIntrusionLoop = () => {
-        if (strikeCalled || !traceActive) return;
-        // Random attack every 45 to 90 seconds
-        const nextAttack = Math.floor(Math.random() * (90000 - 45000 + 1)) + 45000;
-        intrusionLoopId = setTimeout(triggerIntrusion, nextAttack);
-    };
-
-    const triggerIntrusion = () => {
-        if (strikeCalled || state === 'CALC_EXTRACT') return;
-        
+    const triggerIntrusion = (nodeTarget) => {
         previousState = state;
         state = 'INTRUSION_DEFENSE';
         currentDefenseHash = generateHash();
+        pendingDownload = nodeTarget;
         
+        isTyping = true;
+        inputField.disabled = true;
+
+        // Visual Glitch / Screen Overwrite Attack
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>[]{}";
+        let glitchCount = 0;
+        
+        const glitchInterval = setInterval(() => {
+            let str = "";
+            for(let i=0; i<400; i++) str += chars.charAt(Math.floor(Math.random()*chars.length));
+            outputDiv.innerHTML = `<span style="color:#d9534f">${str}</span>`;
+            glitchCount++;
+            if(glitchCount > 5) { 
+                clearInterval(glitchInterval);
+                outputDiv.innerHTML = ""; 
+                executeWolfThreat();
+            }
+        }, 80);
+    };
+
+    const executeWolfThreat = () => {
         screen.classList.add('intrusion-active');
-        promptSpan.innerText = "DEFEND_NODE>";
+        promptSpan.innerText = "SSWOLF_DAEMON>";
         promptSpan.classList.add('trace-warning');
         
-        // Force stop typing if they were in the middle of reading something
-        isTyping = false; 
-        
-        printText(`*** SECURITY BREACH DETECTED ***\nGESTAPO DAEMON ATTEMPTING TO SEVER ROOT CONNECTION.\nYOU HAVE 12 SECONDS TO OVERRIDE.\nTYPE HASH: [${currentDefenseHash}]`, 20, () => {
+        const randomQuote = wolfQuotes[Math.floor(Math.random() * wolfQuotes.length)];
+        let hashString = easyMode ? `<span class="hash-hint" data-hash="${currentDefenseHash}">[${currentDefenseHash}]</span>` : `[${currentDefenseHash}]`;
+
+        printText(`*** SECURITY BREACH ***\n"${randomQuote}"\n\nDOWNLOAD BLOCKED. KERNEL PANIC IMMINENT.\nYOU HAVE 12 SECONDS TO OVERRIDE THE PACKET DROP.\nTYPE OVERRIDE HASH: ${hashString}`, 20, () => {
             intrusionDefenseTimer = setTimeout(failIntrusion, 12000);
         });
     };
@@ -499,26 +538,30 @@
     const failIntrusion = () => {
         screen.classList.remove('intrusion-active');
         promptSpan.classList.remove('trace-warning');
-        promptSpan.innerText = "HQ_LINK>";
+        promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
         
-        // Remove war plans
-        const index = inventory.indexOf('WAR_PLANS');
-        if (index > -1) inventory.splice(index, 1);
+        state = 'CONNECTED';
         
-        traceActive = false;
-        state = previousState;
-        
-        printText("DEFENSE FAILED. FIREWALL BREACHED. CONNECTION TO ROOT DIRECTORY SEVERED.\nV2 SCHEMATICS DELETED FROM LOCAL MEMORY.\nYOU MUST RE-EXECUTE 'HACK_ROOT' TO PROCEED.");
+        printText("DEFENSE FAILED. FIREWALL BREACHED. CONNECTION TO ROOT DIRECTORY SEVERED BY SSWOLF_DAEMON.\nYOU WERE EXPELLED FROM THE MAINFRAME BACK TO LOCAL SYSTEMS.\nYOU MUST RE-EXECUTE 'HACK_ROOT' TO PROCEED.");
     };
 
     const resolveIntrusion = (cmd) => {
         clearTimeout(intrusionDefenseTimer);
         screen.classList.remove('intrusion-active');
+        promptSpan.classList.remove('trace-warning');
+        promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
         
         if (cmd === currentDefenseHash) {
-            promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
-            state = previousState;
-            printText("OVERRIDE ACCEPTED. DAEMON TERMINATED. ROOT CONNECTION SECURED.\nMAINTAINING PRESENCE...", 30, startIntrusionLoop);
+            state = 'CONNECTED'; // Drop them back to the physical room with their prize
+            
+            let itemName = "";
+            if (pendingDownload === 'NODE_V2_TRAJ') itemName = 'WAR_PLANS';
+            if (pendingDownload === 'NODE_UBOAT_COORD') itemName = 'UBOAT_COORD';
+            if (pendingDownload === 'NODE_PROJEKT_ATLAS') itemName = 'ATLAS_INTEL';
+            
+            if (!inventory.includes(itemName)) inventory.push(itemName);
+
+            printText(`OVERRIDE ACCEPTED. SSWOLF_DAEMON BYPASSED.\nDOWNLOAD COMPLETE. ${itemName} ADDED TO LOCAL INVENTORY.\nDISCONNECTING FROM MAINFRAME TO AVOID DETECTION... DROPPED TO LOCAL SHELL.`);
         } else {
             failIntrusion();
         }
@@ -549,12 +592,6 @@
         }
 
         const interval = setInterval(() => {
-            // Stop printing immediately if an intrusion triggers
-            if(state === 'INTRUSION_DEFENSE' && !text.includes('SECURITY BREACH')) {
-                clearInterval(interval);
-                return;
-            }
-
             outputDiv.innerHTML += text.charAt(i);
             if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playClick();
             outputDiv.scrollTop = outputDiv.scrollHeight;
@@ -586,11 +623,10 @@
         outputDiv.innerHTML += `<span ${colorClass}>> ${cmd}</span><br>`;
         inputField.value = '';
 
-        if (traceActive && action(cmd) !== 'CALL_STRIKE') {
+        if (traceActive && action(cmd) !== 'CALL_STRIKE' && state !== 'CALC_EXTRACT') {
             traceLimit--;
-            promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
+            promptSpan.innerText = `[TRACE: ${traceLimit}] ${state === 'MAINFRAME' ? 'ROOT@BERLIN>' : 'HQ_LINK>'}`;
             if (traceLimit <= 0) {
-                clearTimeout(intrusionLoopId);
                 printText("NETWORK TRACE COMPLETE. ENEMY HAS LOCKED TERMINAL CONTROLS. GESTAPO PATROLS ARRIVING.\n\n*** MISSION FAILED ***", 60, () => {
                     inputField.style.display = 'none';
                     if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
@@ -608,6 +644,9 @@
                 break;
             case 'CONNECTED':
                 processCommand(cmd);
+                break;
+            case 'MAINFRAME':
+                processMainframe(cmd);
                 break;
             case 'CALC_EXTRACT':
                 processExtraction(cmd);
@@ -652,6 +691,32 @@
         }
     };
 
+    const processMainframe = (cmd) => {
+        const args = cmd.split(' ');
+        const action = args[0];
+        const target = args[1];
+
+        if (action === 'HELP') {
+            printText("MAINFRAME COMMANDS:\n- SCAN_NET      : LOCATE ENCRYPTED DATA NODES\n- DOWNLOAD [X]  : EXTRACT DATA FROM NODE\n- ABORT_HACK    : DISCONNECT AND RETURN TO LOCAL SHELL");
+        } else if (action === 'SCAN_NET') {
+            printText("SCANNING ENCRYPTED GERMAN SECTORS...\nFOUND: NODE_V2_TRAJ (ARTILLERY TARGETS)\nFOUND: NODE_UBOAT_COORD (NAVAL KRIEGSMARINE)\nFOUND: NODE_PROJEKT_ATLAS (EXPERIMENTAL)");
+        } else if (action === 'DOWNLOAD') {
+            if (!target) {
+                printText("SPECIFY NODE TO DOWNLOAD.");
+            } else if (target === 'NODE_V2_TRAJ' || target === 'NODE_UBOAT_COORD' || target === 'NODE_PROJEKT_ATLAS') {
+                triggerIntrusion(target);
+            } else {
+                printText("NODE NOT FOUND. VERIFY SYNTAX VIA SCAN_NET.");
+            }
+        } else if (action === 'ABORT_HACK') {
+            state = 'CONNECTED';
+            promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
+            printText("ABORTING CONNECTION. DROPPING BACK TO PHYSICAL SHELL.");
+        } else {
+            printText("COMMAND UNRECOGNIZED IN DIGITAL MAINFRAME. TYPE 'HELP'.");
+        }
+    };
+
     const processCommand = (cmd) => {
         const args = cmd.split(' ');
         const action = args[0];
@@ -664,16 +729,16 @@
         } else if (action === 'OBSERVE') {
             printText("YOU ARE IN A DAMP CONCRETE BUNKER.\nTO YOUR LEFT IS A RUSTED METAL [LOCKER].\nIN THE CENTER IS A WOODEN COMMAND [DESK].\nA HEAVY STEEL [SAFE] IS RECESSED INTO THE REAR WALL.\nTHE FLOOR IS LITTERED WITH DEBRIS.");
         } else if (action === 'STATUS') {
-            printText(`SYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}\nJAMMER AVAILABLE: ${!jammerUsed}`);
+            printText(`SYSTEM: NOMINAL.\nOPERATOR STATUS: ALIVE.\nTRIANGULATION RISK: ${triangulationRisk}%\nRADIO AMPLIFICATION: LEVEL ${signalBoosted}`);
         } else if (action === 'SEARCH') {
             if (!target) {
                 printText("SPECIFY TARGET: SEARCH DESK, SEARCH LOCKER, SEARCH SAFE, OR SEARCH MAP.");
             } else if (target === 'SAFE' && safeLocked) {
                 printText("THE SAFE IS SECURED WITH A 3-DIGIT MECHANICAL LOCK.\nA GERMAN NOTE IS ATTACHED: 'Die Summe ist neun. Die erste Ziffer ist die Hälfte der zweiten. Die dritte ist null.'\nUSE 'UNLOCK SAFE [PIN]' TO OPEN.");
             } else if (target === 'MAP') {
-                printText("SCANNED MAP. TOPOGRAPHICAL ANALYSIS COMPLETE.\nYOU ARE CURRENTLY LOCATED AT SECTOR VECTOR: 40-X.\nTHIS IS A HIGH-VALUE TARGET LOCATION.");
+                printText("SCANNED MAP. TOPOGRAPHICAL ANALYSIS COMPLETE.\nYOU ARE CURRENTLY LOCATED AT SECTOR VECTOR: 40-X.");
             } else if (target === 'BLUEPRINT' && !safeLocked) {
-                printText("SCANNED BLUEPRINT. SCHEMATICS DEPICT A HORTEN HO 229 FLYING WING PROTOTYPE.\nTEXT READS: 'PROJEKT ATLAS. FLUGZEUG GESICHERT IN SILO 4.'\n(PROTOTYPE SECURED IN SILO 4. IGNITION OVERRIDE CIPHER: WINTERGHOST).");
+                printText("SCANNED BLUEPRINT. SCHEMATICS DEPICT A HORTEN HO 229 FLYING WING PROTOTYPE.\nTEXT READS: 'PROJEKT ATLAS. FLUGZEUG GESICHERT IN SILO 4.'\n(IGNITION OVERRIDE CIPHER: WINTERGHOST).");
             } else if (environment[target]) {
                 if (environment[target].length > 0) {
                     printText(`SCANNED ${target}. IDENTIFIED ASSETS: ${environment[target].join(', ')}.`);
@@ -717,49 +782,17 @@
         } else if (action === 'INV') {
             if (inventory.length === 0) printText("INVENTORY EMPTY.");
             else printText(`CURRENT INVENTORY: ${inventory.join(', ')}.`);
-        } else if (action === 'BOOST_SIG') {
-            if (signalBoosted >= 3) {
-                printText("SIGNAL AT MAXIMUM THRESHOLD. EQUIPMENT OVERHEATING.");
-            } else {
-                signalBoosted++;
-                triangulationRisk += 30;
-                
-                if (staticGainNode) {
-                    let newVolume = 0.005 + (signalBoosted * 0.15);
-                    staticGainNode.gain.linearRampToValueAtTime(newVolume, audioCtx.currentTime + 1);
-                }
-                printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR.`);
-            }
-        } else if (action === 'JAM_FREQ') {
-            if (jammerUsed) {
-                printText("FREQUENCY JAMMER ALREADY EXPENDED. HARDWARE BURNT OUT.");
-            } else {
-                jammerUsed = true;
-                triangulationRisk = Math.max(0, triangulationRisk - 40);
-                printText("ELECTRONIC WARFARE DEPLOYED. BROADBAND WHITE NOISE TRANSMITTED. ENEMY DIRECTION FINDING CONFOUNDED.\nTRIANGULATION RISK SEVERELY REDUCED.");
-            }
-        } else if (action === 'COMM_HQ') {
-            if (signalBoosted === 0) {
-                printText("TRANSMISSION FAILED. STATIC INTERFERENCE TOO HIGH. HQ CANNOT HEAR YOU.");
-            } else {
-                printText(`HQ: "We read you. Listen closely. That bunker contains V2 trajectories. Execute command HACK_ROOT to download them.\nOnce downloaded, USE 'OBSERVE' to map the room. Find and SEARCH the MAP for your grid. Use CALL_STRIKE [GRID] to order artillery on your own position to destroy the facility before escaping. Out."`);
-            }
         } else if (action === 'HACK_ROOT') {
-            if (inventory.includes('WAR_PLANS')) {
-                printText("ROOT DIRECTORY ALREADY COMPROMISED. SCHEMATICS SECURED.");
-            } else if (!inventory.includes('DOSSIER')) {
+            if (!inventory.includes('DOSSIER')) {
                 printText("ACCESS DENIED. ADMINISTRATOR PASSWORD REQUIRED. FIND THE INTEL DOSSIER.");
             } else {
-                inventory.push('WAR_PLANS');
+                state = 'MAINFRAME';
                 traceActive = true;
                 promptSpan.classList.add('trace-warning');
-                promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
+                promptSpan.innerText = `[TRACE: ${traceLimit}] ROOT@BERLIN>`;
                 inputField.classList.add('trace-warning');
                 
-                printText("DOSSIER PASSWORD ACCEPTED. INITIATING MAINFRAME OVERRIDE...\nSUCCESS. V2 SCHEMATICS DOWNLOADED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED DOWNLOAD DETECTED. HOSTILE TRACE INITIATED.", 30, () => {
-                    // Initiate the Cyber-Warfare mechanic
-                    startIntrusionLoop();
-                });
+                printText("DOSSIER PASSWORD ACCEPTED. MAINFRAME INFILTRATED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED ACCESS DETECTED. HOSTILE TRACE INITIATED.\nTYPE 'HELP' FOR DIGITAL COMMANDS.");
             }
         } else if (action === 'CALL_STRIKE') {
             if (!target) {
@@ -767,28 +800,51 @@
             } else if (target !== '40-X') {
                 printText(`HQ: "Negative. Artillery reports ${target} is empty terrain. Verify your grid on the MAP."`);
             } else if (!inventory.includes('WAR_PLANS')) {
-                printText(`HQ: "Negative. We cannot bomb that bunker until you have downloaded the WAR_PLANS. Secure the intel first."`);
+                printText(`HQ: "Negative. We cannot bomb that bunker until you have downloaded the V2 WAR_PLANS from the mainframe."`);
             } else {
                 strikeCalled = true;
-                clearTimeout(intrusionLoopId); // Disable intrusions once blast is called
                 isTyping = true;
                 inputField.disabled = true;
                 printText("COORDINATES CONFIRMED. ARTILLERY INBOUND. BRACE FOR IMPACT.", 40, triggerExplosion);
             }
+        } else if (action === 'TX_NAVY') {
+             if (!inventory.includes('UBOAT_COORD')) {
+                printText(`HQ: "We have nothing to transmit to the Navy. Download the UBOAT_COORD from the mainframe first."`);
+             } else {
+                navyContacted = true;
+                printText(`TRANSMITTING ENCRYPTED WOLFPACK COORDINATES ON BROADBAND NAVAL FREQUENCY...\nROYAL NAVY ACKNOWLEDGES RECEIPT. THE ADMIRALTY SENDS THEIR REGARDS.`);
+             }
         } else if (action === 'REQ_EXTRACT') {
-            if (signalBoosted === 0) {
-                printText("TRANSMISSION FAILED. SIGNAL WEAK.");
-            } else if (!strikeCalled) {
-                printText(`HQ: "NEGATIVE ON EXTRACTION. YOU MUST CALL THE STRIKE TO DESTROY THE FACILITY FIRST."`);
-            } else if (!inventory.includes('COMPASS') || !inventory.includes('OVERRIDE_KEY')) {
+            if (!inventory.includes('COMPASS') || !inventory.includes('OVERRIDE_KEY')) {
                 printText(`HQ: "NEGATIVE ON EXTRACTION. YOU NEED THE OVERRIDE_KEY AND A COMPASS TO NAVIGATE TO THE LZ. SECURE THEM."`);
-            } else {
-                state = 'CALC_EXTRACT';
-                promptSpan.innerText = "HQ_LINK>";
-                
-                let timeWindow = 45 - (triangulationRisk * 0.35); 
-                printText(`HQ CONNECTED.\n"Assets confirmed. The bunker is gone. We are holding a C-47 transport at Sector Grid 70-X."\n"You are currently at Sector Grid 40-X. The distance is exactly 30 kilometers."\n"You must travel at a sprint pace of 10 kilometers per hour."\n"Due to enemy convergence, we can only keep the plane waiting for ${timeWindow.toFixed(1)} hours."\n\nCALCULATE: How many hours will it take you to reach the transport?\nENTER HOURS:`);
+                return;
             }
+
+            if (inventory.includes('WAR_PLANS')) {
+                if (!strikeCalled) {
+                    printText(`HQ: "NEGATIVE. YOU SECURED THE V2 PLANS, BUT YOU MUST CALL THE STRIKE TO DESTROY THE FACILITY FIRST."`);
+                } else {
+                    state = 'CALC_EXTRACT';
+                    promptSpan.innerText = "HQ_LINK>";
+                    let timeWindow = 45 - (triangulationRisk * 0.35); 
+                    printText(`HQ CONNECTED.\n"The bunker is gone. We are holding a C-47 transport plane at Grid 70-X."\n"You are currently at Grid 40-X. The distance is exactly 30 kilometers."\n"You must travel at a sprint pace of 10 kilometers per hour."\n"We can only keep the plane waiting for ${timeWindow.toFixed(1)} hours."\n\nCALCULATE: How many hours will it take you to reach the transport?\nENTER HOURS:`);
+                }
+            } else if (inventory.includes('UBOAT_COORD')) {
+                if (!navyContacted) {
+                    printText(`HQ: "NEGATIVE. YOU SECURED THE NAVAL INTEL, BUT YOU MUST TRANSMIT IT (TX_NAVY) TO THE FLEET BEFORE ESCAPING."`);
+                } else {
+                    state = 'CALC_EXTRACT';
+                    promptSpan.innerText = "HQ_LINK>";
+                    let timeWindow = 45 - (triangulationRisk * 0.35); 
+                    printText(`HQ CONNECTED.\n"The Admiralty has dispatched a submarine to the coast at Grid 90-X."\n"The submarine is exactly 40 nautical miles off the coast."\n"It is approaching at a silent running speed of 20 knots."\n"Gestapo patrols will arrive in ${timeWindow.toFixed(1)} hours."\n\nCALCULATE: How many hours will it take the submarine to arrive?\nENTER HOURS:`);
+                }
+            } else if (inventory.includes('ATLAS_INTEL')) {
+                printText(`HQ: "We see you downloaded the ATLAS file. That is highly experimental. We have no extraction protocols for that. You are on your own."`);
+            } else {
+                printText(`HQ: "NEGATIVE ON EXTRACTION. YOU HAVEN'T COMPROMISED THE MAINFRAME YET. EXECUTE YOUR MISSION."`);
+            }
+        } else if (action === 'WINTERGHOST') {
+            processExtraction(cmd);
         } else {
             printText("COMMAND UNRECOGNIZED. FOCUS ON THE MISSION.");
         }
@@ -798,22 +854,24 @@
         let answer = parseFloat(cmd);
         
         if (cmd === 'WINTERGHOST') {
-            printText("OVERRIDE CIPHER ACCEPTED.\nSILO 4 DOORS OPENING.\nPROJEKT ATLAS FLIGHT SYSTEMS ENGAGED.\n\nYOU STRAP INTO THE PROTOTYPE AIRCRAFT AS THE BUNKER COLLAPSES AROUND YOU. VERTICAL THRUSTERS IGNITE. YOU PUNCH THROUGH THE ROOF, LEAVING THE LUFTWAFFE IN YOUR WAKE.\n\n*** SECRET MISSION SUCCESS ***", 45, () => {
+            printText("OVERRIDE CIPHER ACCEPTED.\nSILO 4 DOORS OPENING.\nPROJEKT ATLAS FLIGHT SYSTEMS ENGAGED.\n\nYOU STRAP INTO THE PROTOTYPE AIRCRAFT. VERTICAL THRUSTERS IGNITE. YOU PUNCH THROUGH THE ROOF, LEAVING THE LUFTWAFFE IN YOUR WAKE.\n\n*** SECRET MISSION SUCCESS ***", 45, () => {
                 inputField.style.display = 'none';
                 if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3); 
             });
             return;
         }
 
-        if (answer === 3) {
+        let correctAnswer = inventory.includes('WAR_PLANS') ? 3 : (inventory.includes('UBOAT_COORD') ? 2 : 0);
+
+        if (answer === correctAnswer) {
             let timeWindow = 45 - (triangulationRisk * 0.35);
-            if (3 <= timeWindow) {
+            if (correctAnswer <= timeWindow) {
                 printText("COORDINATES LOCKED. THE MATH CHECKS OUT.\nGRAB YOUR GEAR. WE WILL SEE YOU IN LONDON.\n\n*** MISSION SUCCESS ***", 40, () => {
                     inputField.style.display = 'none';
                     if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3); 
                 });
             } else {
-                printText("THE MATH IS CORRECT, BUT YOU TOOK TOO LONG TO MANAGE YOUR SIGNAL RISKS. THE PLANE LEFT.\nYOUR DECISIONS BROUGHT THE PATROLS TOO FAST.\n\n*** MISSION FAILED ***", 60, () => {
+                printText("THE MATH IS CORRECT, BUT YOU TOOK TOO LONG IN THE BUNKER. THE EXTRACTION ABORTED.\nYOUR DECISIONS BROUGHT THE PATROLS TOO FAST.\n\n*** MISSION FAILED ***", 60, () => {
                     inputField.style.display = 'none';
                 });
             }
