@@ -100,7 +100,6 @@
             color: #8b0000;
         }
 
-        /* Screen starts dead */
         #screen {
             background: #030a03;
             width: 100%;
@@ -489,7 +488,6 @@
         oscLow.frequency.setValueAtTime(150, t); 
         oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.03);
         
-        // System terminal output uses lighter electromechanical actuation
         const thudVolume = isSystem ? 0.1 : 0.5;
         
         gainLow.gain.setValueAtTime(thudVolume, t);
@@ -505,8 +503,6 @@
         noiseFilter.frequency.value = 800 + (Math.random() * 200); 
         
         const noiseGain = audioCtx.createGain();
-        
-        // System terminal output has less physical plastic friction
         const frictionVolume = isSystem ? 0.15 : 0.4;
         
         noiseGain.gain.setValueAtTime(frictionVolume, t);
@@ -532,9 +528,14 @@
     };
 
     inputField.addEventListener('keydown', (e) => {
-        // false = Player stroke (heavy)
-        if (e.key !== 'Enter' && e.key !== 'Shift') playKeyDown(false);
+        if (e.key === 'Enter') {
+            playKeyDown(false);
+            handleInput(inputField.value);
+        } else if (e.key !== 'Shift') {
+            playKeyDown(false);
+        }
     });
+
     inputField.addEventListener('keyup', (e) => {
         if (e.key !== 'Enter' && e.key !== 'Shift') playKeyUp();
     });
@@ -764,7 +765,6 @@
 
             outputDiv.innerHTML += text.charAt(i);
             
-            // true = System stroke (light mechanical chatter)
             if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playKeyDown(true);
             
             outputDiv.scrollTop = outputDiv.scrollHeight;
