@@ -31,7 +31,7 @@
             position: relative;
             display: flex;
             flex-direction: column;
-            transition: transform 0.05s;
+            transition: transform 0.05s, border-color 0.3s;
         }
 
         .rivet {
@@ -47,7 +47,6 @@
         .r-bl { bottom: 12px; left: 12px; }
         .r-br { bottom: 12px; right: 12px; }
 
-        /* Muted P1 Phosphor Aesthetic */
         #screen {
             background: radial-gradient(circle at center, #051505 0%, #000000 90%);
             width: 100%;
@@ -61,12 +60,24 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            color: #6bc26b; /* Muted Green */
-            text-shadow: 0 0 2px #6bc26b, 0 0 6px rgba(107,194,107,0.4); /* Reduced Bloom */
+            color: #6bc26b; 
+            text-shadow: 0 0 2px #6bc26b, 0 0 6px rgba(107,194,107,0.4); 
             font-size: 1.8rem;
             letter-spacing: 2px;
             animation: flicker 0.15s infinite;
             transition: background 0.5s, opacity 0.5s;
+        }
+
+        /* Active Intrusion State */
+        @keyframes intrusionPulse {
+            0% { box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
+            50% { box-shadow: inset 0 0 80px rgba(150, 20, 20, 0.3), 0 0 30px rgba(217, 83, 79, 0.5); border-color: #4a1111; }
+            100% { box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(217, 83, 79, 0.2); border-color: #050505; }
+        }
+        .intrusion-active {
+            animation: intrusionPulse 1s infinite !important;
+            color: #d9534f !important;
+            text-shadow: 0 0 5px #d9534f !important;
         }
 
         .power-loss {
@@ -126,11 +137,11 @@
         }
 
         #prompt { margin-right: 15px; transition: color 0.3s; }
-        .trace-warning { color: #d9534f; text-shadow: 0 0 4px #d9534f; } /* Muted Red */
+        .trace-warning { color: #d9534f; text-shadow: 0 0 4px #d9534f; } 
         
         .cursor-blink {
             animation: blinker 1s linear infinite;
-            color: #6bc26b;
+            color: inherit;
         }
         @keyframes blinker {
             50% { opacity: 0; }
@@ -260,6 +271,7 @@
     const screen = document.getElementById('screen');
 
     let state = 'DIFFICULTY_SELECT';
+    let previousState = '';
     let isTyping = false;
     let easyMode = false;
     
@@ -272,23 +284,39 @@
     let traceLimit = 15;
     let strikeCalled = false;
     
+    // Intrusion Variables
+    let intrusionLoopId = null;
+    let intrusionDefenseTimer = null;
+    let currentDefenseHash = "";
+    
     let inventory = [];
     let environment = {
         'DESK': ['COMPASS', 'MAP', 'BRASS_CASING', 'STALE_BREAD'],
         'LOCKER': ['DOSSIER', 'WOOL_SOCKS', 'LUNCHBOX'],
-        'SAFE': ['OVERRIDE_KEY'] 
+        'SAFE': ['OVERRIDE_KEY', 'BLUEPRINT']
     };
     let safeLocked = true;
 
     let audioCtx;
     let staticGainNode;
+    let keyNoiseBuffer;
 
     const initAudio = () => {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             startStaticNoise();
+            createKeyNoiseBuffer();
         }
         if (audioCtx.state === 'suspended') audioCtx.resume();
+    };
+
+    const createKeyNoiseBuffer = () => {
+        const bufferSize = audioCtx.sampleRate * 0.05; // 50ms buffer
+        keyNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = keyNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1; // pure white noise
+        }
     };
 
     const startStaticNoise = () => {
@@ -315,32 +343,37 @@
     };
 
     const playClick = () => {
-        if (!audioCtx) return;
+        if (!audioCtx || !keyNoiseBuffer) return;
         const t = audioCtx.currentTime;
 
-        // The "Snap" (Buckling spring - higher pitch, faster decay)
-        const oscHigh = audioCtx.createOscillator();
-        const gainHigh = audioCtx.createGain();
-        oscHigh.type = 'square';
-        oscHigh.frequency.setValueAtTime(2200, t); 
-        oscHigh.frequency.exponentialRampToValueAtTime(100, t + 0.01); 
-        gainHigh.gain.setValueAtTime(0.4, t);
-        gainHigh.gain.exponentialRampToValueAtTime(0.001, t + 0.01);
-        oscHigh.connect(gainHigh).connect(audioCtx.destination);
-        oscHigh.start(t);
-        oscHigh.stop(t + 0.01);
+        // The "Clack" (Filtered white noise simulates plastic/metal friction)
+        const noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = keyNoiseBuffer;
+        
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        // Randomize pitch slightly for different keys
+        noiseFilter.frequency.value = 800 + (Math.random() * 400); 
 
-        // The "Thud" (Bottoming out against the metal plate - tighter resonance)
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.8, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.015);
+
+        noiseSource.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
+        noiseSource.start(t);
+
+        // The "Thud" (Resonant impact)
         const oscLow = audioCtx.createOscillator();
         const gainLow = audioCtx.createGain();
-        oscLow.type = 'triangle';
-        oscLow.frequency.setValueAtTime(300, t); 
-        oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.035);
-        gainLow.gain.setValueAtTime(0.35, t);
-        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+        oscLow.type = 'sine';
+        oscLow.frequency.setValueAtTime(250, t); 
+        oscLow.frequency.exponentialRampToValueAtTime(40, t + 0.02);
+        gainLow.gain.setValueAtTime(0.5, t);
+        gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+        
         oscLow.connect(gainLow).connect(audioCtx.destination);
         oscLow.start(t);
-        oscLow.stop(t + 0.035);
+        oscLow.stop(t + 0.02);
     };
 
     const triggerExplosion = () => {
@@ -383,7 +416,7 @@
         const glitchInterval = setInterval(() => {
             let str = "";
             for(let i=0; i<800; i++) str += chars.charAt(Math.floor(Math.random()*chars.length));
-            outputDiv.innerHTML = `<span style="color:#FFF">${str}</span>`;
+            outputDiv.innerHTML = `<span style="color:#6bc26b">${str}</span>`;
             glitchCount++;
             if(glitchCount > 15) {
                 clearInterval(glitchInterval);
@@ -393,16 +426,18 @@
     };
 
     const powerDown = () => {
+        // Stop Intrusion Logic if it's running
+        clearTimeout(intrusionLoopId);
+        clearTimeout(intrusionDefenseTimer);
+        screen.classList.remove('intrusion-active');
+
         screen.classList.add('power-loss');
         outputDiv.innerHTML = "";
         inputField.style.display = "none";
         commandBar.style.display = "none";
         promptSpan.innerHTML = "<span class='cursor-blink'>_</span>";
         
-        if (staticGainNode) {
-            staticGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        }
-
+        if (staticGainNode) staticGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
         setTimeout(rebootSystem, 4000);
     };
 
@@ -425,6 +460,71 @@
             commandBar.style.display = 'flex';
         });
     };
+
+    // --- CYBER WARFARE / INTRUSION MECHANICS ---
+
+    const generateHash = () => {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let hash = "";
+        for(let i=0; i<4; i++) hash += chars.charAt(Math.floor(Math.random() * chars.length));
+        return hash;
+    };
+
+    const startIntrusionLoop = () => {
+        if (strikeCalled || !traceActive) return;
+        // Random attack every 45 to 90 seconds
+        const nextAttack = Math.floor(Math.random() * (90000 - 45000 + 1)) + 45000;
+        intrusionLoopId = setTimeout(triggerIntrusion, nextAttack);
+    };
+
+    const triggerIntrusion = () => {
+        if (strikeCalled || state === 'CALC_EXTRACT') return;
+        
+        previousState = state;
+        state = 'INTRUSION_DEFENSE';
+        currentDefenseHash = generateHash();
+        
+        screen.classList.add('intrusion-active');
+        promptSpan.innerText = "DEFEND_NODE>";
+        promptSpan.classList.add('trace-warning');
+        
+        // Force stop typing if they were in the middle of reading something
+        isTyping = false; 
+        
+        printText(`*** SECURITY BREACH DETECTED ***\nGESTAPO DAEMON ATTEMPTING TO SEVER ROOT CONNECTION.\nYOU HAVE 12 SECONDS TO OVERRIDE.\nTYPE HASH: [${currentDefenseHash}]`, 20, () => {
+            intrusionDefenseTimer = setTimeout(failIntrusion, 12000);
+        });
+    };
+
+    const failIntrusion = () => {
+        screen.classList.remove('intrusion-active');
+        promptSpan.classList.remove('trace-warning');
+        promptSpan.innerText = "HQ_LINK>";
+        
+        // Remove war plans
+        const index = inventory.indexOf('WAR_PLANS');
+        if (index > -1) inventory.splice(index, 1);
+        
+        traceActive = false;
+        state = previousState;
+        
+        printText("DEFENSE FAILED. FIREWALL BREACHED. CONNECTION TO ROOT DIRECTORY SEVERED.\nV2 SCHEMATICS DELETED FROM LOCAL MEMORY.\nYOU MUST RE-EXECUTE 'HACK_ROOT' TO PROCEED.");
+    };
+
+    const resolveIntrusion = (cmd) => {
+        clearTimeout(intrusionDefenseTimer);
+        screen.classList.remove('intrusion-active');
+        
+        if (cmd === currentDefenseHash) {
+            promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
+            state = previousState;
+            printText("OVERRIDE ACCEPTED. DAEMON TERMINATED. ROOT CONNECTION SECURED.\nMAINTAINING PRESENCE...", 30, startIntrusionLoop);
+        } else {
+            failIntrusion();
+        }
+    };
+
+    // --- END CYBER WARFARE ---
 
     inputField.addEventListener('input', () => {
         if (inputField.value.trim() !== '') {
@@ -449,6 +549,12 @@
         }
 
         const interval = setInterval(() => {
+            // Stop printing immediately if an intrusion triggers
+            if(state === 'INTRUSION_DEFENSE' && !text.includes('SECURITY BREACH')) {
+                clearInterval(interval);
+                return;
+            }
+
             outputDiv.innerHTML += text.charAt(i);
             if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playClick();
             outputDiv.scrollTop = outputDiv.scrollHeight;
@@ -469,7 +575,14 @@
         initAudio();
         const cmd = rawCmd.trim().toUpperCase();
         
-        let colorClass = traceActive ? 'style="color:#d9534f"' : 'style="color:#FFF"';
+        if (state === 'INTRUSION_DEFENSE') {
+            outputDiv.innerHTML += `<span style="color:#FFF">> ${cmd}</span><br>`;
+            inputField.value = '';
+            resolveIntrusion(cmd);
+            return;
+        }
+        
+        let colorClass = traceActive ? 'style="color:#d9534f"' : 'style="color:#6bc26b"';
         outputDiv.innerHTML += `<span ${colorClass}>> ${cmd}</span><br>`;
         inputField.value = '';
 
@@ -477,6 +590,7 @@
             traceLimit--;
             promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
             if (traceLimit <= 0) {
+                clearTimeout(intrusionLoopId);
                 printText("NETWORK TRACE COMPLETE. ENEMY HAS LOCKED TERMINAL CONTROLS. GESTAPO PATROLS ARRIVING.\n\n*** MISSION FAILED ***", 60, () => {
                     inputField.style.display = 'none';
                     if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
@@ -555,9 +669,11 @@
             if (!target) {
                 printText("SPECIFY TARGET: SEARCH DESK, SEARCH LOCKER, SEARCH SAFE, OR SEARCH MAP.");
             } else if (target === 'SAFE' && safeLocked) {
-                printText("THE SAFE IS SECURED WITH A 3-DIGIT MECHANICAL LOCK.\nA GERMAN NOTE IS ATTACHED: 'Die Summe ist neun. Die erste Ziffer ist die Hälfte der zweiten. Die dritte ist null.'\n(TRANSLATION: THE SUM IS 9. THE FIRST DIGIT IS HALF THE SECOND. THE THIRD IS ZERO.)\nUSE 'UNLOCK SAFE [PIN]' TO OPEN.");
+                printText("THE SAFE IS SECURED WITH A 3-DIGIT MECHANICAL LOCK.\nA GERMAN NOTE IS ATTACHED: 'Die Summe ist neun. Die erste Ziffer ist die Hälfte der zweiten. Die dritte ist null.'\nUSE 'UNLOCK SAFE [PIN]' TO OPEN.");
             } else if (target === 'MAP') {
                 printText("SCANNED MAP. TOPOGRAPHICAL ANALYSIS COMPLETE.\nYOU ARE CURRENTLY LOCATED AT SECTOR VECTOR: 40-X.\nTHIS IS A HIGH-VALUE TARGET LOCATION.");
+            } else if (target === 'BLUEPRINT' && !safeLocked) {
+                printText("SCANNED BLUEPRINT. SCHEMATICS DEPICT A HORTEN HO 229 FLYING WING PROTOTYPE.\nTEXT READS: 'PROJEKT ATLAS. FLUGZEUG GESICHERT IN SILO 4.'\n(PROTOTYPE SECURED IN SILO 4. IGNITION OVERRIDE CIPHER: WINTERGHOST).");
             } else if (environment[target]) {
                 if (environment[target].length > 0) {
                     printText(`SCANNED ${target}. IDENTIFIED ASSETS: ${environment[target].join(', ')}.`);
@@ -573,7 +689,7 @@
                     printText("SAFE IS ALREADY UNLOCKED.");
                 } else if (pin === '360') {
                     safeLocked = false;
-                    printText("MECHANICAL TUMBLERS DISENGAGED. SAFE UNLOCKED.\nINSIDE YOU SEE: OVERRIDE_KEY. USE 'TAKE OVERRIDE_KEY' TO ACQUIRE.");
+                    printText("MECHANICAL TUMBLERS DISENGAGED. SAFE UNLOCKED.\nINSIDE YOU SEE: OVERRIDE_KEY, BLUEPRINT. USE 'TAKE OVERRIDE_KEY' TO ACQUIRE.");
                 } else {
                     printText("INCORRECT PIN. THE MECHANISM REMAINS LOCKED.");
                 }
@@ -612,7 +728,6 @@
                     let newVolume = 0.005 + (signalBoosted * 0.15);
                     staticGainNode.gain.linearRampToValueAtTime(newVolume, audioCtx.currentTime + 1);
                 }
-
                 printText(`WARNING: SIGNAL BOOSTED TO LEVEL ${signalBoosted}. CLARITY SECURED.\nCONSEQUENCE: GERMAN RDF STATIONS ARE LOCKING ONTO THIS SECTOR.`);
             }
         } else if (action === 'JAM_FREQ') {
@@ -641,7 +756,10 @@
                 promptSpan.innerText = `[TRACE: ${traceLimit}] HQ_LINK>`;
                 inputField.classList.add('trace-warning');
                 
-                printText("DOSSIER PASSWORD ACCEPTED. INITIATING MAINFRAME OVERRIDE...\nSUCCESS. V2 SCHEMATICS DOWNLOADED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED DOWNLOAD DETECTED. HOSTILE TRACE INITIATED. CALL THE STRIKE BEFORE THE TRACE COMPLETES.");
+                printText("DOSSIER PASSWORD ACCEPTED. INITIATING MAINFRAME OVERRIDE...\nSUCCESS. V2 SCHEMATICS DOWNLOADED.\n\n*** CRITICAL WARNING ***\nUNAUTHORIZED DOWNLOAD DETECTED. HOSTILE TRACE INITIATED.", 30, () => {
+                    // Initiate the Cyber-Warfare mechanic
+                    startIntrusionLoop();
+                });
             }
         } else if (action === 'CALL_STRIKE') {
             if (!target) {
@@ -652,6 +770,7 @@
                 printText(`HQ: "Negative. We cannot bomb that bunker until you have downloaded the WAR_PLANS. Secure the intel first."`);
             } else {
                 strikeCalled = true;
+                clearTimeout(intrusionLoopId); // Disable intrusions once blast is called
                 isTyping = true;
                 inputField.disabled = true;
                 printText("COORDINATES CONFIRMED. ARTILLERY INBOUND. BRACE FOR IMPACT.", 40, triggerExplosion);
@@ -677,6 +796,15 @@
 
     const processExtraction = (cmd) => {
         let answer = parseFloat(cmd);
+        
+        if (cmd === 'WINTERGHOST') {
+            printText("OVERRIDE CIPHER ACCEPTED.\nSILO 4 DOORS OPENING.\nPROJEKT ATLAS FLIGHT SYSTEMS ENGAGED.\n\nYOU STRAP INTO THE PROTOTYPE AIRCRAFT AS THE BUNKER COLLAPSES AROUND YOU. VERTICAL THRUSTERS IGNITE. YOU PUNCH THROUGH THE ROOF, LEAVING THE LUFTWAFFE IN YOUR WAKE.\n\n*** SECRET MISSION SUCCESS ***", 45, () => {
+                inputField.style.display = 'none';
+                if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3); 
+            });
+            return;
+        }
+
         if (answer === 3) {
             let timeWindow = 45 - (triangulationRisk * 0.35);
             if (3 <= timeWindow) {
